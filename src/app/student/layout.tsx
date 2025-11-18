@@ -12,6 +12,7 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const { user } = getUser();
+  const isAssessmentPage = pathname.includes('/studentAssessment')
 
   const roleFromPath = pathname.split("/")[1]?.toLowerCase() || "";
   const userRole = user?.rolesList?.[0]?.toLowerCase() || "";
@@ -31,9 +32,10 @@ export default function RootLayout({
   }
 
   return <div className="font-body">
-    <MainLayout>
+  { isAssessmentPage ? children :    <MainLayout>
     {children}
-    </MainLayout>
+    </MainLayout>}
+ 
     </div>;
 }
 //
