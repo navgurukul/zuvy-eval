@@ -33,7 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { api } from "@/utils/axios.config";
+import { api, apiLLM } from "@/utils/axios.config";
 import { useBootcamp } from "@/lib/hooks/useBootcamp";
 import TypingSkeleton from "./LoadingSkeletion";
 import { useAiAssessment } from "@/lib/hooks/useAiAssessment";
@@ -290,7 +290,7 @@ export function AssessmentConfigForm({
     setLoading(true);
     try {
       // await api.post('/content/generate-mcqs', dataToSave);
-      await api.post("/ai-assessment", dataToSave);
+      await apiLLM.post("/ai-assessment", dataToSave);
       refetch();
 
       // await api.post('/ai-assessment/generate/all', { aiAssessmentId: assessmentId });

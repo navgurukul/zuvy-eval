@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/utils/axios.config";
+import { apiLLM } from '@/utils/axios.config';
 import { useToast } from "@/components/ui/use-toast";
 
 export interface AiAssessment {
@@ -47,7 +47,7 @@ export function useAiAssessment(params?: UseAiAssessmentParams): UseAiAssessment
         ? `/ai-assessment?bootcampId=${encodeURIComponent(String(bootcampId))}`
         : '/ai-assessment';
       
-      const res = await api.get(url);
+      const res = await apiLLM.get(url);
       setAssessment(res.data);
     } catch (err: any) {
       console.error("Error fetching AI assessment:", err);

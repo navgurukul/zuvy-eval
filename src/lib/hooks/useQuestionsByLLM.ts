@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api } from '@/utils/axios.config'
+import { apiLLM } from '@/utils/axios.config'
 
 export interface QuestionOption {
   id: number
@@ -50,7 +50,7 @@ export function useQuestionsByLLM({sessionId}: {sessionId: string}): UseQuestion
       setLoading(true)
       setError(null)
 
-      const response = await api.get<QuestionsByLLMApiResponse>(`/questions-by-llm?aiAssessmentId=${sessionId}`)
+      const response = await apiLLM.get<QuestionsByLLMApiResponse>(`/questions-by-llm?aiAssessmentId=${sessionId}`)
 
       setQuestions(response.data)
     } catch (err: any) {

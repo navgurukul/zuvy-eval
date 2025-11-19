@@ -12,7 +12,7 @@ import {
   QuestionByLLM,
 } from "@/lib/hooks/useQuestionsByLLM";
 import { AdaptiveQuestion } from "@/types/adaptive-assessment";
-import { api } from "@/utils/axios.config";
+import { api, apiLLM } from "@/utils/axios.config";
 import { useToast } from "@/components/ui/use-toast";
 
 import {
@@ -307,7 +307,7 @@ export default function AssessmentSessionPage({
       };
 
       // Call the API
-      const response = await api.post("/ai-assessment/submit", payload);
+      const response = await apiLLM.post("/ai-assessment/submit", payload);
 
       // Update session with submissions
       const submissions: QuestionSubmission[] = [];

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api } from '@/utils/axios.config'
+import { apiLLM } from '@/utils/axios.config'
 
 export interface StudentAssessment {
   id: number
@@ -54,7 +54,7 @@ export function useStudentAssessmentsByBootcamp({
       setLoading(true)
       setError(null)
 
-      const response = await api.get<StudentAssessmentApiResponse>(
+      const response = await apiLLM.get<StudentAssessmentApiResponse>(
         `/ai-assessment/by/studentId?bootcampId=${bootcampId}`
       )
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api } from '@/utils/axios.config'
+import { apiLLM } from '@/utils/axios.config'
 
 export interface StudentAssessment {
   id: number
@@ -33,7 +33,7 @@ export function useStudentAssessments(): UseStudentAssessmentsReturn {
       setLoading(true)
       setError(null)
 
-      const response = await api.get<StudentAssessment[]>('/ai-assessment/by/studentId')
+      const response = await apiLLM.get<StudentAssessment[]>('/ai-assessment/by/studentId')
 
       setAssessments(response.data)
     } catch (err: any) {

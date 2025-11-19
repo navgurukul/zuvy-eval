@@ -15,7 +15,6 @@ import {
 } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
 import { api } from "@/utils/axios.config";
-import axios, { AxiosRequestConfig } from "axios";
 import { Button } from "@/components/ui/button";
 import { getUser } from "@/store/store";
 import Image from "next/image";
@@ -50,11 +49,6 @@ export interface AuthResponse {
   refresh_token: string;
   user: User;
 }
-
-let mainUrl = process.env.NEXT_PUBLIC_MAIN_URL;
-let headers: AxiosRequestConfig["headers"] = {
-  "Content-Type": "application/json",
-};
 
 function LoginPage() {
   const [loading, setLoading] = useState(false);
