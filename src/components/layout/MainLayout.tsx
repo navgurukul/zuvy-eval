@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import axios from "axios";
+import { api } from "@/utils/axios.config";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -55,21 +55,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   ];
 
   const Logout = async () => {
-    const mainUrl = process.env.NEXT_PUBLIC_MAIN_URL;
-
     try {
-      const access_token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("access_token")
-          : null;
-      await axios.post(
-        `${mainUrl}/auth/logout`, {}, {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-            Accept: "application/json",
-          },
-        }
-      );
+      await api.post('/auth/logout', {});
 
       toast.success({
         title: "Logout Successful",

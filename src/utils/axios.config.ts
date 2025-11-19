@@ -16,6 +16,7 @@ let mainUrl = process.env.NEXT_PUBLIC_MAIN_URL
 // const mainUrl = "http://zuvy.navgurukul.org/"
 // const mainUrl = "https://main-api.zuvy.org"
 const apiURL = process.env.NEXT_PUBLIC_API_URL
+const llmApiURL = process.env.NEXT_PUBLIC_LLM_API_URL
 const localUrl = process.env.NEXT_PUBLIC_LOCAL_URL
 // const env_name = process.env.NODE_ENV
 
@@ -67,6 +68,21 @@ apiMeraki.interceptors.request.use((config) => {
     }
     return config
 })
+
+const apiLLM = axios.create({
+    baseURL: llmApiURL,
+    headers,
+})
+
+if (typeof window !== 'undefined') {
+    apiLLM.interceptors.request.use((config) => {
+        const access_token = localStorage.getItem('access_token')
+        if (access_token) {
+            config.headers.Authorization = `Bearer ${access_token}`
+        }
+        return config
+    })
+}
 
 type FailedRequest = {
     resolve: (access_token: string) => void
@@ -155,4 +171,56 @@ api.interceptors.response.use(
     }
 )
 
-export { api, apiMeraki }
+// Add same interceptor for apiLLM
+apiLLM.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject })
+                })
+                    .then((access_token) => {
+                        originalRequest.headers.Authorization = `Bearer ${access_token}`
+                        return apiLLM(originalRequest)
+                    })
+                    .catch((err) => Promise.reject(err))
+            }
+
+            originalRequest._retry = true
+            isRefreshing = true
+
+            try {
+                const refresh_token = localStorage.getItem('refresh_token')
+                const response = await axios.post(`${mainUrl}/auth/refresh`, {
+                    refresh_token,
+                })
+
+                const newAccessToken = response.data.access_token
+                localStorage.setItem('access_token', newAccessToken)
+                localStorage.setItem(
+                    'refresh_token',
+                    response?.data?.refresh_token
+                )
+
+                apiLLM.defaults.headers.common[
+                    'Authorization'
+                ] = `Bearer ${newAccessToken}`
+                processQueue(null, newAccessToken)
+                return apiLLM(originalRequest)
+            } catch (err) {
+                processQueue(err, null)
+                sessionModalStore.setShowModal(true)
+                return Promise.reject(err)
+            } finally {
+                isRefreshing = false
+            }
+        }
+
+        return Promise.reject(error)
+    }
+)
+
+export { api, apiMeraki, apiLLM }
