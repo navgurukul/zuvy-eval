@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import {
   CheckCircle2,
   XCircle,
@@ -11,6 +12,10 @@ import {
   BookOpen,
   ArrowLeft,
   Download,
+  Volume2,
+  VolumeX,
+  Pause,
+  Play,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -36,6 +41,17 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
   const { evaluations, loading, error } = useAssessmentEvaluation({ 
     userId: parseInt(user.id),
     assessmentId: +assessmentId
+  });
+
+  // Text-to-Speech using custom hook
+  const { speak, pause, resume, cancel, speaking, paused, supported, progress } = useSpeechSynthesis({
+    rate: 0.9,
+    onError: (error) => {
+      // Only show error for non-interruption errors
+      if (error.error !== 'interrupted' && error.error !== 'canceled') {
+        alert('Failed to play speech. Please try again.');
+      }
+    },
   });
 
   // Calculate statistics from evaluation data
@@ -120,6 +136,59 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
     });
   };
 
+  const handleListenToReport = () => {
+    if (!supported) {
+      alert('Text-to-speech is not supported in your browser.');
+      return;
+    }
+
+    // If already speaking, toggle pause/resume
+    if (speaking) {
+      if (paused) {
+        resume();
+      } else {
+        pause();
+      }
+      return;
+    }
+
+    // Create the text to be spoken
+    let textToSpeak = '';
+
+    // Add performance summary
+    if (stats.summary) {
+      textToSpeak += 'Performance Summary. ' + stats.summary + '. ';
+    }
+
+    // Add recommendations
+    if (stats.recommendations) {
+      textToSpeak += 'Recommendations. ' + stats.recommendations + '.';
+    }
+
+    if (!textToSpeak.trim()) {
+      alert('No summary or recommendations available to read.');
+      return;
+    }
+
+    // Clean up special characters and formatting symbols
+    textToSpeak = textToSpeak
+      .replace(/[*_~`#]/g, '') // Remove markdown symbols
+      .replace(/[\[\](){}]/g, '') // Remove brackets and parentheses
+      .replace(/[•◦▪]/g, '') // Remove bullet points
+      .replace(/[-–—]/g, ' ') // Replace dashes with spaces
+      .replace(/\n+/g, '. ') // Replace newlines with periods
+      .replace(/\s+/g, ' ') // Normalize multiple spaces
+      .replace(/\.{2,}/g, '.') // Replace multiple periods with single period
+      .trim();
+
+    // Start speaking
+    speak(textToSpeak);
+  };
+
+  const handleStopSpeech = () => {
+    cancel();
+  };
+
   const handleDownloadReport = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -146,10 +215,21 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
     // Header with primary color
     doc.setFillColor(...colors.primary);
     doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // Add Zuvy logo
+    try {
+      const logo = new Image();
+      logo.src = '/zuvy-logo-horizontal.png';
+      // Add logo on the left side of header, aligned with text
+      doc.addImage(logo, 'PNG', 15, 15, 30, 15);
+    } catch (error) {
+      console.warn('Could not load logo:', error);
+    }
+    
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('Assessment Evaluation Report', pageWidth / 2, 25, { align: 'center' });
+    doc.text('Assessment Evaluation Report', pageWidth / 2 + 10, 25, { align: 'center' });
 
     yPosition = 50;
 
@@ -473,10 +553,66 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
               Completed on {formatDate(evaluations[0].questionEvaluation.createdAt)}
             </p>
           </div>
-          <Button variant="outline" onClick={handleDownloadReport} className="gap-2">
-            <Download className="h-4 w-4" />
-            Download Report
-          </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              {supported && (stats.summary || stats.recommendations) && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleListenToReport} 
+                    className="gap-2"
+                    disabled={!stats.summary && !stats.recommendations}
+                  >
+                    {speaking ? (
+                      paused ? (
+                        <>
+                          <Play className="h-4 w-full" />
+                          <span className='w-14'>
+                          Resume
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="h-4 w-full" />
+                          <span className='w-14'>
+                          Pause
+                          </span>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <Volume2 className="h-4 w-4" />
+                        Listen To Report
+                      </>
+                    )}
+                  </Button>
+                  {speaking && (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleStopSpeech} 
+                      className="gap-2"
+                      // size="icon"
+                    >
+                      Stop
+                    </Button>
+                  )}
+                </div>
+              )}
+              <Button variant="outline" onClick={handleDownloadReport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Download Report
+              </Button>
+            </div>
+            {speaking && (
+              <div className="w-full">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Volume2 className="h-3 w-3" />
+                  <span>Playing audio... {Math.round(progress)}%</span>
+                </div>
+                <Progress value={progress} className="h-1.5" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
