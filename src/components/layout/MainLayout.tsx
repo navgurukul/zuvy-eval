@@ -11,11 +11,10 @@ import {
   Layers,
   Database,
   Settings,
-  LogOut,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { getUser } from '@/store/store'
+import { getUser } from '@/store/store';
+import LogoutPopup from '@/app/_components/Logout';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -54,7 +53,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     // },
   ];
 
-  const Logout = async () => {
+  const handleLogout = async () => {
     try {
       await api.post('/auth/logout', {});
 
@@ -121,18 +120,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             }
           </div>
 
-          <Button
-            variant="ghost"
-            className="flex hover:text-white hover:bg-red-500 items-center gap-2 "
-            title="Logout"
-            aria-label="Logout"
-            onClick={Logout}
-          >
-            <span>
-            Logout
-            </span>
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <LogoutPopup 
+            onLogout={handleLogout}
+            name={user.name || user.email}
+            avatarUrl={user.profilePicture}
+          />
         </div>
       </header>
 

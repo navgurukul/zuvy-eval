@@ -495,30 +495,30 @@ export default function AssessmentSessionPage({
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="border-b border-border bg-card px-3 sm:px-6 py-3 sm:py-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExit}
-              className="gap-2"
+              className="gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Exit
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-sm">Exit</span>
             </Button>
-            <div>
-              <h1 className="font-heading text-body1 font-semibold text-foreground">
+            <div className="flex-1 sm:flex-initial">
+              <h1 className="font-heading text-sm sm:text-base font-semibold text-foreground">
                 Assessment Session
               </h1>
-              <p className="text-body2 text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Question {session.currentQuestionIndex + 1} of{" "}
                 {session.totalQuestions}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 w-full sm:w-auto justify-between sm:justify-end">
             {/* <OfflineIndicator
               isOnline={isOnline}
               pendingSyncCount={pendingSyncCount}
@@ -527,27 +527,27 @@ export default function AssessmentSessionPage({
               current={answeredQuestions.size}
               total={session.totalQuestions}
             />
-            <Button
-              size="lg"
-              onClick={() => setShowSubmitDialog(true)}
-              disabled={answeredQuestions.size === 0 || isSubmitting}
-              className="gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Dialog
-                    open={isSubmitting}
-                    onOpenChange={(val) => setIsSubmitting(val)}
-                  >
-                    <DialogContent
-                      className="max-w-md [&>button]:hidden"
-                      onInteractOutside={e => e.preventDefault()}
-                    >
-
-                      {/* Visually hidden title for accessibility */}
-                      <VisuallyHidden>
-                        <DialogTitle>Reviewing Assessment</DialogTitle>
-                      </VisuallyHidden>
+           <Button
+  size="sm"
+  onClick={() => setShowSubmitDialog(true)}
+  disabled={answeredQuestions.size === 0 || isSubmitting}
+  className="gap-1 sm:gap-2 h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
+>
+  {isSubmitting ? (
+    <>
+      <Dialog
+        open={isSubmitting}
+        onOpenChange={(val) => setIsSubmitting(val)}
+      >
+        <DialogContent
+          className="max-w-md [&>button]:hidden"
+          onInteractOutside={e => e.preventDefault()}
+        >
+          
+          {/* Visually hidden title for accessibility */}
+          <VisuallyHidden>
+            <DialogTitle>Reviewing Assessment</DialogTitle>
+          </VisuallyHidden>
 
                       <div className="bg-card rounded-2xl shadow-24dp border border-border overflow-hidden">
                         {/* Header with gradient using design system colors */}
@@ -670,49 +670,55 @@ export default function AssessmentSessionPage({
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - Hidden on mobile */}
         <QuestionSidebar
           totalQuestions={session.totalQuestions}
           currentQuestionIndex={session.currentQuestionIndex}
           answeredQuestions={answeredQuestions}
           onQuestionSelect={handleQuestionSelect}
-          className="w-64 flex-shrink-0"
+          className="hidden lg:block w-64 flex-shrink-0"
         />
 
         {/* Question Area */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-8">
-            <Card className="p-8">
-              <QuestionDisplay
-                question={currentQuestion}
-                selectedOptionIds={currentQuestionAnswers}
-                onOptionSelect={handleOptionSelect}
-                questionNumber={session.currentQuestionIndex + 1}
-                totalQuestions={session.totalQuestions}
-                disabled={false}
-              />
+          <div className="max-w-3xl mx-auto p-3 sm:p-4 lg:p-6">
+            <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-card via-card-elevated to-card-light border border-border/40 transition-all duration-300 shadow-md hover:shadow-xl">
+              {/* Top Gradient Bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary-dark to-secondary" />
+              
+              {/* Content with controlled overflow */}
+              <div className="relative p-3 sm:p-4 lg:p-6 max-h-[calc(100vh-120px)] overflow-y-auto">
+                <QuestionDisplay
+                  question={currentQuestion}
+                  selectedOptionIds={currentQuestionAnswers}
+                  onOptionSelect={handleOptionSelect}
+                  questionNumber={session.currentQuestionIndex + 1}
+                  totalQuestions={session.totalQuestions}
+                  disabled={false}
+                />
 
-              {/* Navigation Buttons */}
-              <div className="mt-8 flex justify-between">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={session.currentQuestionIndex === 0}
-                  className="gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={isLastQuestion ?? false}
-                  className="gap-2"
-                >
-                  Next
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+                {/* Navigation Buttons */}
+                <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 sticky bottom-0 bg-gradient-to-t from-card via-card to-transparent pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={session.currentQuestionIndex === 0}
+                    className="gap-2 w-full sm:w-auto order-2 sm:order-1 hover:bg-primary/10 hover:border-primary transition-all"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={isLastQuestion ?? false}
+                    className="gap-2 w-full sm:w-auto order-1 sm:order-2 bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-md hover:shadow-lg transition-all"
+                  >
+                    Next
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </div>
