@@ -45,7 +45,7 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
   // Text-to-Speech using custom hook
   const { speak, pause, resume, cancel, speaking, paused, supported, progress } = useSpeechSynthesis({
-    rate: 0.9,
+    rate: 0.8,
     onError: (error) => {
       // Only show error for non-interruption errors
       if (error.error !== 'interrupted' && error.error !== 'canceled') {
@@ -172,10 +172,46 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
     // Clean up special characters and formatting symbols
     textToSpeak = textToSpeak
+      .replace(/\+\+/g, ' plus plus ')
+      .replace(/--/g, ' minus minus ')
+      .replace(/==/g, ' equals equals ')
+      .replace(/!=/g, ' not equals ')
+      .replace(/<=/g, ' less than or equal to ')
+      .replace(/>=/g, ' greater than or equal to ')
+      .replace(/->/g, ' arrow ')
+      .replace(/=>/g, ' fat arrow ')
+      .replace(/\+=/g, ' plus equals ')
+      .replace(/-=/g, ' minus equals ')
+      .replace(/\*=/g, ' times equals ')
+      .replace(/\/=/g, ' divided by equals ')
+      .replace(/&&/g, ' and ')
+      .replace(/\|\|/g, ' or ')
+      // Handle array indexing like arr[i] or array[index]
+      .replace(/`?([a-zA-Z_][a-zA-Z0-9_]*)\[([a-zA-Z_][a-zA-Z0-9_]*)\]`?/g, (match, arrayName, indexName) => {
+        const commonKeywords = ['for', 'if', 'else', 'while', 'do', 'switch', 'case', 'break', 'continue', 'return', 'function', 'class', 'const', 'let', 'var', 'new', 'this', 'super', 'try', 'catch', 'throw', 'async', 'await', 'import', 'export', 'from', 'default', 'true', 'false', 'null', 'undefined', 'in', 'of'];
+        
+        const spelledArray = commonKeywords.includes(arrayName.toLowerCase()) 
+          ? arrayName 
+          : arrayName.split('').join(' ').toUpperCase();
+        
+        const spelledIndex = commonKeywords.includes(indexName.toLowerCase()) 
+          ? indexName 
+          : indexName.split('').join(' ').toUpperCase();
+        
+        return `${spelledArray} of ${spelledIndex}`;
+      })
+      // Spell out variable names in backticks or code context
+      .replace(/`([a-zA-Z_][a-zA-Z0-9_]*)`/g, (match, variable) => {
+        // Common keywords and words to NOT spell out
+        const commonKeywords = ['for', 'if', 'else', 'while', 'do', 'switch', 'case', 'break', 'continue', 'return', 'function', 'class', 'const', 'let', 'var', 'new', 'this', 'super', 'try', 'catch', 'throw', 'async', 'await', 'import', 'export', 'from', 'default', 'true', 'false', 'null', 'undefined', 'in', 'of'];
+        if (commonKeywords.includes(variable.toLowerCase())) {
+          return variable;
+        }
+        return variable.split('').join(' ').toUpperCase();
+      })
       .replace(/[*_~`#]/g, '') // Remove markdown symbols
-      .replace(/[\[\](){}]/g, '') // Remove brackets and parentheses
+      .replace(/[\[\](){}]/g, ' ') // Remove brackets and parentheses
       .replace(/[•◦▪]/g, '') // Remove bullet points
-      .replace(/[-–—]/g, ' ') // Replace dashes with spaces
       .replace(/\n+/g, '. ') // Replace newlines with periods
       .replace(/\s+/g, ' ') // Normalize multiple spaces
       .replace(/\.{2,}/g, '.') // Replace multiple periods with single period
@@ -219,7 +255,7 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
     // Add Zuvy logo
     try {
       const logo = new Image();
-      logo.src = '/zuvy-logo-horizontal.png';
+      logo.src = '/zuvy-logo-horizontal-dark.png';
       // Add logo on the left side of header, aligned with text
       doc.addImage(logo, 'PNG', 15, 15, 30, 15);
     } catch (error) {
@@ -529,60 +565,59 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
   }
 
   return (
-    <div className="w-full px-6 py-8 max-w-7xl mx-auto">
+    <div className="w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4 sm:mb-6 md:mb-8">
         <Button
           variant="ghost"
           onClick={() => router.push('/student')}
-          className="mb-4 gap-2"
+          className="mb-3 sm:mb-4 gap-2 h-8 sm:h-9"
+          size="sm"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm">Back to Dashboard</span>
         </Button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <h1 className="font-heading text-h5 text-foreground mb-2">
+            <h1 className="font-heading text-lg sm:text-xl md:text-2xl lg:text-h5 text-foreground mb-2">
               Assessment Results
             </h1>
-            <p className="text-body2 text-muted-foreground">
+            <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground">
               {stats.language} Assessment
             </p>
-            <p className="text-body2 text-muted-foreground">
+            <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground">
               Completed on {formatDate(evaluations[0].questionEvaluation.createdAt)}
             </p>
           </div>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-2 w-full lg:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2">
               {supported && (stats.summary || stats.recommendations) && (
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
                     onClick={handleListenToReport} 
-                    className="gap-2"
+                    className="gap-2 h-8 sm:h-9 text-xs sm:text-sm flex-1 sm:flex-none"
                     disabled={!stats.summary && !stats.recommendations}
+                    size="sm"
                   >
                     {speaking ? (
                       paused ? (
                         <>
-                          <Play className="h-4 w-full" />
-                          <span className='w-14'>
-                          Resume
-                          </span>
+                          <Play className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Resume</span>
                         </>
                       ) : (
                         <>
-                          <Pause className="h-4 w-full" />
-                          <span className='w-14'>
-                          Pause
-                          </span>
+                          <Pause className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>Pause</span>
                         </>
                       )
                     ) : (
                       <>
-                        <Volume2 className="h-4 w-4" />
-                        Listen To Report
+                        <Volume2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className='hidden sm:inline'>Listen To Report</span>
+                        <span className='sm:hidden'>Listen</span>
                       </>
                     )}
                   </Button>
@@ -590,17 +625,18 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                     <Button 
                       variant="outline" 
                       onClick={handleStopSpeech} 
-                      className="gap-2"
-                      // size="icon"
+                      className="gap-2 h-8 sm:h-9 text-xs sm:text-sm"
+                      size="sm"
                     >
                       Stop
                     </Button>
                   )}
                 </div>
               )}
-              <Button variant="outline" onClick={handleDownloadReport} className="gap-2">
-                <Download className="h-4 w-4" />
-                Download Report
+              <Button variant="outline" onClick={handleDownloadReport} className="gap-2 h-8 sm:h-9 text-xs sm:text-sm flex-1 sm:flex-none" size="sm">
+                <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className='hidden sm:inline'>Download Report</span>
+                <span className='sm:hidden'>Download</span>
               </Button>
             </div>
             {speaking && (
@@ -619,31 +655,31 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
       {/* Score Card */}
       <Card
         className={cn(
-          'p-8 mb-8 border-l-4',
+          'p-4 sm:p-6 md:p-8 mb-4 sm:mb-6 md:mb-8 border-l-4',
           stats.passed ? 'border-l-success bg-success/5' : 'border-l-destructive bg-destructive/5'
         )}
       >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 sm:mb-6">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div
               className={cn(
-                'w-16 h-16 rounded-full flex items-center justify-center',
+                'w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center flex-shrink-0',
                 stats.passed
                   ? 'bg-success text-success-foreground'
                   : 'bg-destructive text-destructive-foreground'
               )}
             >
               {stats.passed ? (
-                <CheckCircle2 className="h-8 w-8" />
+                <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
               ) : (
-                <XCircle className="h-8 w-8" />
+                <XCircle className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
               )}
             </div>
             <div>
-              <h2 className="font-heading text-h5 font-semibold mb-1">
+              <h2 className="font-heading text-base sm:text-lg md:text-xl lg:text-h5 font-semibold mb-1">
                 {stats.passed ? 'Congratulations! You Passed' : 'Not Passed'}
               </h2>
-              <p className="text-body1 text-muted-foreground">
+              <p className="text-xs sm:text-sm md:text-body1 text-muted-foreground">
                 {stats.passed
                   ? 'Great job! Keep up the excellent work.'
                   : `You need ${stats.passingScore}% to pass. Review and try again.`}
@@ -651,40 +687,40 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
             </div>
           </div>
 
-          <div className="text-right">
-            <p className={cn('text-6xl font-bold', getScoreColor(stats.score))}>
+          <div className="text-left md:text-right">
+            <p className={cn('text-4xl sm:text-5xl md:text-6xl font-bold', getScoreColor(stats.score))}>
               {stats.score}%
             </p>
-            <p className="text-body2 text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground mt-1">
               {stats.correctAnswers} / {stats.totalQuestions} correct
             </p>
           </div>
         </div>
 
-        <Progress value={stats.score} className="h-3 mb-4" />
+        <Progress value={stats.score} className="h-2 sm:h-3 mb-4" />
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex items-center gap-3">
-            <Target className="h-5 w-5 text-primary" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Target className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
             <div>
               <p className="text-xs text-muted-foreground">Passing Score</p>
-              <p className="text-body2 font-semibold">{stats.passingScore}%</p>
+              <p className="text-sm sm:text-body2 font-semibold">{stats.passingScore}%</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Brain className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
             <div>
               <p className="text-xs text-muted-foreground">Language</p>
-              <p className="text-body2 font-semibold">{stats.language}</p>
+              <p className="text-sm sm:text-body2 font-semibold">{stats.language}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
             <div>
               <p className="text-xs text-muted-foreground">Topics Covered</p>
-              <p className="text-body2 font-semibold">{stats.topicPerformance.length}</p>
+              <p className="text-sm sm:text-body2 font-semibold">{stats.topicPerformance.length}</p>
             </div>
           </div>
         </div>
@@ -700,31 +736,31 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
         {/* Overview */}
         <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-lg bg-success/10 text-success">
-                  <CheckCircle2 className="h-5 w-5" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            <Card className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-lg bg-success/10 text-success flex-shrink-0">
+                  <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div>
-                  <p className="text-body2 text-muted-foreground">Correct</p>
-                  <p className="text-h5 font-semibold">{stats.correctAnswers}</p>
+                  <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground">Correct</p>
+                  <p className="text-lg sm:text-xl md:text-h5 font-semibold">{stats.correctAnswers}</p>
                 </div>
               </div>
               <Progress
                 value={(stats.correctAnswers / stats.totalQuestions) * 100}
-                className="h-2"
+                className="h-1.5 sm:h-2"
               />
             </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-lg bg-destructive/10 text-destructive">
-                  <XCircle className="h-5 w-5" />
+            <Card className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-lg bg-destructive/10 text-destructive flex-shrink-0">
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div>
-                  <p className="text-body2 text-muted-foreground">Incorrect</p>
-                  <p className="text-h5 font-semibold">
+                  <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground">Incorrect</p>
+                  <p className="text-lg sm:text-xl md:text-h5 font-semibold">
                     {stats.totalQuestions - stats.correctAnswers}
                   </p>
                 </div>
@@ -735,18 +771,18 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                     stats.totalQuestions) *
                   100
                 }
-                className="h-2"
+                className="h-1.5 sm:h-2"
               />
             </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-lg bg-primary/10 text-primary">
-                  <BookOpen className="h-5 w-5" />
+            <Card className="p-4 sm:p-5 md:p-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div>
-                  <p className="text-body2 text-muted-foreground">Topics Covered</p>
-                  <p className="text-h5 font-semibold">{stats.topicPerformance.length}</p>
+                  <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground">Topics Covered</p>
+                  <p className="text-lg sm:text-xl md:text-h5 font-semibold">{stats.topicPerformance.length}</p>
                 </div>
               </div>
             </Card>
@@ -754,11 +790,11 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
           {/* Summary */}
           {stats.summary && (
-            <Card className="p-6 mt-6">
-              <h3 className="font-heading text-body1 font-semibold mb-4">
+            <Card className="p-4 sm:p-5 md:p-6 mt-4 sm:mt-5 md:mt-6">
+              <h3 className="font-heading text-sm sm:text-base md:text-body1 font-semibold mb-3 sm:mb-4">
                 Performance Summary
               </h3>
-              <p className="text-body2 text-muted-foreground leading-relaxed">
+              <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground leading-relaxed">
                 {stats.summary}
               </p>
             </Card>
@@ -766,11 +802,11 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
           {/* Recommendations */}
           {stats.recommendations && (
-            <Card className="p-6 mt-6">
-              <h3 className="font-heading text-body1 font-semibold mb-4">
+            <Card className="p-4 sm:p-5 md:p-6 mt-4 sm:mt-5 md:mt-6">
+              <h3 className="font-heading text-sm sm:text-base md:text-body1 font-semibold mb-3 sm:mb-4">
                 Recommendations
               </h3>
-              <p className="text-body2 text-muted-foreground leading-relaxed">
+              <p className="text-xs sm:text-sm md:text-body2 text-muted-foreground leading-relaxed">
                 {stats.recommendations}
               </p>
             </Card>
@@ -779,13 +815,14 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
 
         {/* Topic Analysis */}
         <TabsContent value="topics">
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {stats.topicPerformance.map((topic) => (
-              <Card key={topic.topic} className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-heading text-body1 font-semibold">{topic.topic}</h3>
+              <Card key={topic.topic} className="p-4 sm:p-5 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
+                  <h3 className="font-heading text-sm sm:text-base md:text-body1 font-semibold">{topic.topic}</h3>
                   <Badge
                     className={cn(
+                      'w-fit text-xs',
                       topic.accuracy >= 80
                         ? 'bg-success'
                         : topic.accuracy >= 60
@@ -798,13 +835,13 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-muted-foreground">
                       {topic.correct} / {topic.total} correct
                     </span>
                     <span className="font-semibold">{topic.accuracy}%</span>
                   </div>
-                  <Progress value={topic.accuracy} className="h-2" />
+                  <Progress value={topic.accuracy} className="h-1.5 sm:h-2" />
                 </div>
               </Card>
             ))}
@@ -821,39 +858,43 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
               return(
                 <AccordionItem key={q.id} value={`question-${q.id}`}>
                   <AccordionTrigger>
-                    <div className="flex items-center gap-4 flex-1 text-left">
+                    <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-1 text-left">
                       <div
                         className={cn(
-                          'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+                          'flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center',
                           isCorrect
                             ? 'bg-success text-success-foreground'
                             : 'bg-destructive text-destructive-foreground'
                         )}
                       >
                         {isCorrect ? (
-                          <CheckCircle2 className="h-4 w-4" />
+                          <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         ) : (
-                          <XCircle className="h-4 w-4" />
+                          <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-body2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-xs sm:text-sm md:text-body2">
                           Question {index + 1}
                         </p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                           {q.question}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{q.topic}</Badge>
+                      <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                        <Badge variant="outline" className="text-xs">{q.topic}</Badge>
                         {getDifficultyBadge(q.difficulty)}
                       </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
-                    <div className="p-4 space-y-4">
+                    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                       <div>
-                        <p className="text-body1 font-medium mb-2 whitespace-pre-wrap">{q.question}</p>
+                        <p className="text-sm sm:text-base md:text-body1 font-medium mb-2 whitespace-pre-wrap">{q.question}</p>
+                        <div className="flex sm:hidden items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs">{q.topic}</Badge>
+                          {getDifficultyBadge(q.difficulty)}
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -866,7 +907,7 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                             <div
                               key={option.id}
                               className={cn(
-                                'p-3 rounded-lg border-2',
+                                'p-2 sm:p-3 rounded-lg border-2',
                                 isThisCorrect
                                   ? 'border-success bg-success/10'
                                   : isThisWrong
@@ -874,15 +915,17 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                                   : 'border-border bg-muted/30'
                               )}
                             >
-                              <div className="flex items-start gap-2">
-                                <span className="font-medium">{option.optionNumber}.</span>
-                                <span className="flex-1">{option.optionText}</span>
-                                {isSelected && (
-                                  <Badge variant="secondary" className="text-xs">Your Answer</Badge>
-                                )}
-                                {isThisCorrect && (
-                                  <Badge className="bg-success text-xs">Correct</Badge>
-                                )}
+                              <div className="flex items-start gap-2 flex-wrap">
+                                <span className="font-medium text-xs sm:text-sm">{option.optionNumber}.</span>
+                                <span className="flex-1 text-xs sm:text-sm min-w-0">{option.optionText}</span>
+                                <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+                                  {isSelected && (
+                                    <Badge variant="secondary" className="text-[10px] sm:text-xs">Your Answer</Badge>
+                                  )}
+                                  {isThisCorrect && (
+                                    <Badge className="bg-success text-[10px] sm:text-xs">Correct</Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -890,9 +933,9 @@ export default function AssessmentResultsPage({assessmentId}: {assessmentId: str
                       </div>
 
                       { q.explanation && (
-                        <div className={`p-4 rounded-lg ${isCorrect ? 'bg-primary-light' : 'bg-destructive/60'}`}>
-                          <p className="text-sm font-medium mb-2">Explanation:</p>
-                          <p className="text-sm">{q.explanation}</p>
+                        <div className={`p-3 sm:p-4 rounded-lg ${isCorrect ? 'bg-primary-light' : 'bg-destructive/60'}`}>
+                          <p className="text-xs sm:text-sm font-medium mb-2">Explanation:</p>
+                          <p className="text-xs sm:text-sm">{q.explanation}</p>
                         </div>
                       )}
                     </div>
