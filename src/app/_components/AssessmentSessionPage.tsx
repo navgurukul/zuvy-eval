@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, use } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Clock, FileText, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -69,12 +69,16 @@ export default function AssessmentSessionPage({
 }: AssessmentSessionPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const searchParams = useSearchParams()
+  const params = useParams()
+  const bootcampId = searchParams.get('bootcampId')
 
   // Session state
   const [session, setSession] = useState<AssessmentSession | null>(null);
   const [loading, setLoading] = useState(true);
   const {
     questions: apiQuestions,
+    isCompleted,
     loading: questionLoading,
     error,
     refetch,
@@ -212,6 +216,13 @@ export default function AssessmentSessionPage({
     session && session.currentQuestionIndex === session.totalQuestions - 1;
   const currentQuestionAnswers =
     selectedAnswers.get(session?.currentQuestionIndex ?? -1) || [];
+
+  useEffect(() => {
+    if (isCompleted) {
+      // setShowSubmitDialog(true);
+      router.push(`/student/bootcamp/${bootcampId}`)
+    }
+  }, [isCompleted]);
 
   // Handle option selection
   const handleOptionSelect = (optionId: string) => {
@@ -450,7 +461,7 @@ export default function AssessmentSessionPage({
 
   // Handle exit
   const handleExit = () => {
-    router.push("/student");
+    router.push(`/student/bootcamp/${bootcampId}`);
   };
 
   if (loading || questionLoading) {
