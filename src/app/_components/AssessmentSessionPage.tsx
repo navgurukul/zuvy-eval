@@ -55,7 +55,7 @@ interface AssessmentAnswerPayload {
     questionId: number;
     optionText: string;
     optionNumber: number;
-  } | number;
+  } | null;
   language: string;
 }
 
@@ -303,7 +303,7 @@ export default function AssessmentSessionPage({
             difficulty: originalQuestion.difficulty,
             options: originalQuestion.options,
             correctOption: originalQuestion.correctOption.optionNumber,
-            selectedAnswerByStudent: selectedOptionObj || -1,
+            selectedAnswerByStudent: selectedOptionObj || null,
             language: originalQuestion.language,
           };
           return answer;
@@ -321,7 +321,7 @@ export default function AssessmentSessionPage({
           difficulty: unansweredQuestion.difficulty,
           options: unansweredQuestion.options,
           correctOption: unansweredQuestion.correctOption.optionNumber,
-          selectedAnswerByStudent: -1, // Indicate no answer selected
+          selectedAnswerByStudent: null, // Indicate no answer selected
           language: unansweredQuestion.language,
         };
       });
