@@ -662,10 +662,15 @@ export default function AssessmentSessionPage({
                   </Dialog>
 
                   <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
+       @keyframes shimmer {
+  0% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 200%;
+  }
+}
+
       `}</style>
                 </>
               ) : (
