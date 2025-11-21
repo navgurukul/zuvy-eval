@@ -174,9 +174,9 @@ export function QuestionDisplay({
 
       {/* Question Text */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-        <h2 className="text-md sm:text-lg lg:text-xl text-foreground flex-1">
+        <h6 className="flex-1">
           Q. {question.questionText} 
-        </h2>
+        </h6>
         {supported && (
           <div className="flex gap-2">
             <Button

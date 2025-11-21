@@ -544,10 +544,10 @@ export default function AssessmentSessionPage({
   disabled={answeredQuestions.size === 0 || isSubmitting}
   className="gap-1 sm:gap-2 h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
 >
-  {isSubmitting ? (
+  {true ? (
     <>
       <Dialog
-        open={isSubmitting}
+        open={true}
         onOpenChange={(val) => setIsSubmitting(val)}
       >
         <DialogContent
@@ -662,10 +662,15 @@ export default function AssessmentSessionPage({
                   </Dialog>
 
                   <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
+       @keyframes shimmer {
+  0% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 200%;
+  }
+}
+
       `}</style>
                 </>
               ) : (
