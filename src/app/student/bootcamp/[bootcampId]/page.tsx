@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { getUser } from '@/store/store';
+import { ArrowLeft } from "lucide-react";
+
 
 type Props = {}
 
@@ -48,7 +50,7 @@ const Page = (props: Props) => {
   });
 
   const handleStartAssessment = (assessmentId: number) => {
-    router.push(`/student/studentAssessment/${assessmentId}`);
+    router.push(`/student/studentAssessment/${assessmentId}?bootcampId=${bootcampId}`);
   };
 
   const handleViewResults = (assessmentId: number) => {
@@ -116,9 +118,22 @@ const Page = (props: Props) => {
     assessments?.flatMap(a => Object.keys(a.topics || {})) || []
   );
 
+  const handleExit = () => {
+    router.push(`/student`);
+  };
+
   return (
     <div className="w-full px-6 py-8 max-w-7xl mx-auto">
       {/* Header */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExit}
+          // className="gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3"
+        >
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="text-xs sm:text-sm">Exit</span>
+        </Button>
       <div className="mb-8">
         <h1 className="font-heading text-h5 text-foreground mb-2">
           My Assessments

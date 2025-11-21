@@ -30,10 +30,13 @@ export interface QuestionByLLM {
   correctOption: CorrectOption
 }
 
-export type QuestionsByLLMApiResponse = QuestionByLLM[]
-
+export interface QuestionsByLLMApiResponse {
+  questions: QuestionByLLM[]
+  isCompleted: boolean
+}
 interface UseQuestionsByLLMReturn {
   questions: QuestionByLLM[]
+  isCompleted: boolean
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
@@ -42,6 +45,7 @@ interface UseQuestionsByLLMReturn {
 
 export function useQuestionsByLLM({sessionId}: {sessionId: string}): UseQuestionsByLLMReturn {
   const [questions, setQuestions] = useState<QuestionByLLM[]>([])
+  const [isCompleted, setIsCompleted] = useState(false)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,7 +56,8 @@ export function useQuestionsByLLM({sessionId}: {sessionId: string}): UseQuestion
 
       const response = await apiLLM.get<QuestionsByLLMApiResponse>(`/questions-by-llm?aiAssessmentId=${sessionId}`)
 
-      setQuestions(response.data)
+      setQuestions(response.data?.questions)
+      setIsCompleted(response.data?.isCompleted)
     } catch (err: any) {
       console.error('Error fetching questions by LLM:', err)
       setError(err?.response?.data?.message || 'Failed to fetch questions')
@@ -67,6 +72,7 @@ export function useQuestionsByLLM({sessionId}: {sessionId: string}): UseQuestion
 
   return {
     questions,
+    isCompleted,
     loading,
     error,
     refetch: fetchQuestions,

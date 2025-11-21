@@ -25,6 +25,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const pathname = usePathname();
 
   const role = user.rolesList && user.rolesList[0] ? user.rolesList[0].toLowerCase() : null;
+  const homeLink = role === 'admin' ? '/admin/admin-assessment-management' : '/student';
 
   const navigationItems = [
     {
@@ -80,7 +81,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-16 items-center justify-between w-full px-6">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center">
+            <Link href={homeLink} className="flex items-center">
               <Image
                 src="/zuvy-logo-horizontal.png"
                 alt="Zuvy"
