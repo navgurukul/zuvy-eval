@@ -544,10 +544,10 @@ export default function AssessmentSessionPage({
   disabled={answeredQuestions.size === 0 || isSubmitting}
   className="gap-1 sm:gap-2 h-8 sm:h-10 text-xs sm:text-sm px-3 sm:px-4"
 >
-  {true ? (
+  {isSubmitting ? (
     <>
       <Dialog
-        open={true}
+        open={isSubmitting}
         onOpenChange={(val) => setIsSubmitting(val)}
       >
         <DialogContent
