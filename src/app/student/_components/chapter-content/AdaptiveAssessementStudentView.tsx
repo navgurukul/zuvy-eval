@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { CalendarDays, Clock3, FileQuestion } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,9 +30,22 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
     assessments,
     isFetchingAssessments,
     error,
+    refetchAssessments,
   } = useGetStudentAiAssessments(bootcampId, chapterId, domainId)
 
   const hasRequiredIds = Boolean(bootcampId && chapterId && domainId)
+
+  // Refetch assessments when the page becomes visible (user returns from assessment submission)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && hasRequiredIds) {
+        refetchAssessments()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [hasRequiredIds, refetchAssessments])
 
   const handleChapterComplete = () => {
     if (typeof onChapterComplete === 'function') {
@@ -41,8 +54,8 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
   }
 
   const getStudentStatusLabel = (status: number) => {
-    if (status === 1) return 'Completed'
-    if (status === 0) return 'Not Started'
+    if (status === 1) return 'Submitted'
+    if (status === 0) return 'Not Submitted'
     return `Status ${status}`
   }
 
@@ -140,14 +153,23 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
                   </div>
 
                   <div className="flex items-center justify-end md:justify-start">
-                    <Button
-                      type="button"
-                      className="h-9 rounded-lg px-4 text-xs"
-                      onClick={() => handleStartAssessment(assessment.id)}
-                      disabled={!bootcampId}
+                    {assessments[0].studentStatus === 1 ? (
+                      <Button
+                        type="button"
+                        className="h-9 rounded-lg px-4 text-xs disabled:"
+                        disabled
+                      >
+                         Assessment Submitted
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        className="h-9 rounded-lg px-4 text-xs"
+                        onClick={() => handleStartAssessment(assessment.id)}
+                        disabled={!bootcampId}
                     >
                       Start Assessment
-                    </Button>
+                    </Button>)}
                   </div>
                 </div>
 

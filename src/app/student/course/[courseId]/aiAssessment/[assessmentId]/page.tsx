@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useGetStudentAiAssessmentQuestions } from '@/hooks/useGetStudentAiAssessmentQuestions'
-import { Flag, Bookmark, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
+import { useGetStudentAiAssessmentResult } from '@/hooks/useGetStudentAiAssessmentResult'
+import { useGetQuestionExplanation } from '@/hooks/useGetQuestionExplanation'
+import { useExplanationStore } from '@/store/useExplanationStore'
+import { ExplanationDialog } from '@/components/ExplanationDialog'
+import { Flag, Bookmark, ArrowLeft, ArrowRight, Loader2, CheckCircle, XCircle, Sparkles } from 'lucide-react'
 import { api } from '@/utils/axios.config'
 import { toast } from '@/components/ui/use-toast'
 
@@ -30,17 +34,39 @@ const AssessmentQuestionsPage = () => {
     fetchQuestions,
   } = useGetStudentAiAssessmentQuestions()
 
+  const {
+    result,
+    isFetchingResult,
+    fetchResult,
+  } = useGetStudentAiAssessmentResult()
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set())
   const [bookmarkedQuestions, setBookmarkedQuestions] = useState<Set<number>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [resultCurrentQuestionIndex, setResultCurrentQuestionIndex] = useState(0)
+  const [isExplanationDialogOpen, setIsExplanationDialogOpen] = useState(false)
+  const [selectedQuestionForExplanation, setSelectedQuestionForExplanation] = useState<number | null>(null)
+
+  const { fetchExplanation, isLoading: isExplanationLoading, error: explanationError } = useGetQuestionExplanation()
+  const { getExplanation } = useExplanationStore()
 
   useEffect(() => {
     if (!Number.isNaN(assessmentId) && assessmentId > 0) {
       fetchQuestions(assessmentId)
     }
   }, [assessmentId, fetchQuestions])
+
+  // Auto-fetch results if assessment is already submitted
+  useEffect(() => {
+    if (assessmentMeta?.studentStatus === 1 && !showResults && !isFetchingResult) {
+      fetchResult(assessmentId)
+      setShowResults(true)
+      setResultCurrentQuestionIndex(0)
+    }
+  }, [assessmentMeta?.studentStatus, assessmentId, fetchResult, showResults, isFetchingResult])
 
   const totalQuestions = questions.length
 
@@ -119,7 +145,10 @@ const AssessmentQuestionsPage = () => {
         description: 'Assessment submitted successfully!',
       })
 
-      router.back()
+      // Fetch the result after successful submission
+      await fetchResult(assessmentId)
+      setShowResults(true)
+      setResultCurrentQuestionIndex(0)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -156,6 +185,37 @@ const AssessmentQuestionsPage = () => {
     return 'aspect-square bg-muted text-text-secondary rounded-md flex items-center justify-center font-semibold text-xs font-bold border border-border hover:bg-border'
   }
 
+  const getResultQuestionButtonClass = (index: number) => {
+    if (!result) return ''
+    const isCurrentQuestion = index === resultCurrentQuestionIndex
+    const resultQuestion = result.questions[index]
+    const isCorrect = resultQuestion?.isCorrect
+
+    if (isCurrentQuestion) {
+      return 'aspect-square bg-primary shadow-soft rounded-md flex items-center justify-center font-semibold text-xs font-bold text-white border border-primary hover:bg-primary-dark'
+    }
+
+    if (isCorrect) {
+      return 'aspect-square bg-success-light text-success rounded-md flex items-center justify-center font-semibold text-xs font-bold border border-success/30'
+    }
+
+    return 'aspect-square bg-destructive/10 text-destructive rounded-md flex items-center justify-center font-semibold text-xs font-bold border border-destructive/30'
+  }
+
+  const getOptionLabelFromQuestion = (questionId: number, optionKey: number | string): string | null => {
+    const question = questions.find((q) => q.questionId === questionId)
+    if (!question) return null
+    return question.options[optionKey] || null
+  }
+
+  const handleExplainWithAi = async (questionId: number) => {
+    setSelectedQuestionForExplanation(questionId)
+    setIsExplanationDialogOpen(true)
+    
+    // Fetch explanation async
+    await fetchExplanation(assessmentId, questionId)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation Bar */}
@@ -189,214 +249,549 @@ const AssessmentQuestionsPage = () => {
       <div className="pt-16 flex min-h-screen">
         {/* Left Sidebar */}
         <aside className="h-[calc(100vh-4rem)] w-72 fixed left-0 top-16 bg-card overflow-y-auto border-r border-border flex flex-col p-5 space-y-5">
-          <div>
-            <h3 className="font-bold text-sm text-primary">Assessment {assessmentMeta?.aiAssessmentId}</h3>
-            <p className="text-xs text-text-secondary mt-1">Set #{assessmentMeta?.questionSetId}</p>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="space-y-3 pr-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-text-secondary uppercase tracking-wide">Navigator</span>
-                <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full font-semibold">
-                  {currentQuestionIndex + 1} / {totalQuestions}
-                </span>
+          {showResults && result ? (
+            // Results Sidebar
+            <>
+              <div>
+                <h3 className="font-bold text-sm text-primary">Results Summary</h3>
+                <p className="text-xs text-text-secondary mt-1">Score: {result.score}/{result.totalQuestions}</p>
               </div>
 
-              <div className="grid grid-cols-5 gap-1.5">
-                {questions.map((question, index) => (
-                  <button
-                    key={`nav-${question.questionId}`}
-                    onClick={() => goToQuestion(index)}
-                    className={getQuestionButtonClass(index)}
-                    title={`Question ${index + 1}${flaggedQuestions.has(question.questionId) ? ' (Flagged)' : ''}${bookmarkedQuestions.has(question.questionId) ? ' (Bookmarked)' : ''}`}
-                  >
-                    <span className="text-xs font-bold">{question.position || index + 1}</span>
-                    {flaggedQuestions.has(question.questionId) && (
-                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-destructive rounded-full"></span>
-                    )}
-                    {bookmarkedQuestions.has(question.questionId) && !flaggedQuestions.has(question.questionId) && (
-                      <Bookmark className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 text-primary" fill="currentColor" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </ScrollArea>
+              <ScrollArea className="flex-1">
+                <div className="space-y-3 pr-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wide">Question Review</span>
+                    <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full font-semibold">
+                      {resultCurrentQuestionIndex + 1} / {result.questions.length}
+                    </span>
+                  </div>
 
-          <div className="pt-4 space-y-2 border-t border-border">
-            <button 
-              onClick={handleSubmitAssessment}
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:bg-primary-dark transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                'Submit'
-              )}
-            </button>
-          </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {result.questions.map((question, index) => (
+                      <button
+                        key={`result-nav-${question.questionId}`}
+                        onClick={() => setResultCurrentQuestionIndex(index)}
+                        className={getResultQuestionButtonClass(index)}
+                        title={`Question ${index + 1}${question.isCorrect ? ' (Correct)' : ' (Incorrect)'}`}
+                      >
+                        <span className="text-xs font-bold">{index + 1}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            // Questions Sidebar
+            <>
+              <div>
+                <h3 className="font-bold text-sm text-primary">Assessment {assessmentMeta?.aiAssessmentId}</h3>
+                <p className="text-xs text-text-secondary mt-1">Set #{assessmentMeta?.questionSetId}</p>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="space-y-3 pr-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wide">Navigator</span>
+                    <span className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full font-semibold">
+                      {currentQuestionIndex + 1} / {totalQuestions}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {questions.map((question, index) => (
+                      <button
+                        key={`nav-${question.questionId}`}
+                        onClick={() => goToQuestion(index)}
+                        className={getQuestionButtonClass(index)}
+                        title={`Question ${index + 1}${flaggedQuestions.has(question.questionId) ? ' (Flagged)' : ''}${bookmarkedQuestions.has(question.questionId) ? ' (Bookmarked)' : ''}`}
+                      >
+                        <span className="text-xs font-bold">{question.position || index + 1}</span>
+                        {flaggedQuestions.has(question.questionId) && (
+                          <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-destructive rounded-full"></span>
+                        )}
+                        {bookmarkedQuestions.has(question.questionId) && !flaggedQuestions.has(question.questionId) && (
+                          <Bookmark className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 text-primary" fill="currentColor" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </ScrollArea>
+
+              <div className="pt-4 space-y-2 border-t border-border">
+                <button 
+                  onClick={handleSubmitAssessment}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:bg-primary-dark transition-colors shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit'
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </aside>
 
         {/* Main Content */}
         <main className="ml-72 flex-1 p-8 pb-28">
-          <div className="max-w-3xl mx-auto">
-            {isFetchingQuestions && (
-              <div className="text-center py-8">
-                <p className="text-sm text-text-secondary">Loading questions...</p>
-              </div>
-            )}
+          {showResults && result ? (
+            // Results View
+            <div className="max-w-3xl mx-auto">
+              <div className="space-y-8">
+                {/* Results Header */}
+                <div className="space-y-6">
+                  <div className="text-center space-y-3">
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Assessment Complete</h1>
+                    <p className="text-sm text-text-secondary font-medium">Heres your detailed performance analysis</p>
+                  </div>
 
-            {!isFetchingQuestions && error && (
-              <div className="text-center py-8">
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
+                  {/* Score Card */}
+                  <Card className="border-0 bg-gradient-to-br from-primary/5 via-accent/5 to-background shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-3 rounded-lg bg-white/50 backdrop-blur-sm border border-border/30">
+                          <div className="text-xl font-bold text-primary">
+                            {result.score}
+                            <span className="text-xs text-text-secondary font-normal">/{result.totalQuestions}</span>
+                          </div>
+                          <p className="text-xs uppercase tracking-widest text-text-secondary font-semibold">Correct Answers</p>
+                        </div>
 
-            {!isFetchingQuestions && !error && totalQuestions === 0 && (
-              <div className="text-center py-8">
-                <p className="text-sm text-text-secondary">No questions available for this assessment.</p>
-              </div>
-            )}
+                        <div className="flex flex-col items-center justify-center space-y-2 p-3 rounded-lg bg-white/50 backdrop-blur-sm border border-border/30">
+                          <div className="text-xl font-bold">{result.percentage}%</div>
+                          <p className="text-xs uppercase tracking-widest text-text-secondary font-semibold">Score Percentage</p>
+                        </div>
 
-            {!isFetchingQuestions && !error && currentQuestion && (
-              <div className="space-y-6">
-                {/* Question Header */}
-                <div className="space-y-3">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-3 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <div className="text-xl font-bold text-primary">{result.level.grade}</div>
+                          <p className="text-xs uppercase tracking-widest text-text-secondary font-semibold">Grade</p>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center space-y-2 p-3 rounded-lg bg-white/50 backdrop-blur-sm border border-border/30">
+                          <div className="text-center">
+                            <p className="text-xs font-semibold text-foreground">{result.level.meaning}</p>
+                            <p className="text-xs text-primary font-semibold mt-1">{result.level.hardship}</p>
+                          </div>
+                          <p className="text-xs uppercase tracking-widest text-text-secondary font-semibold">Status</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Question Review */}
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="px-3 py-1.5 bg-primary-light rounded-full">
-                      <span className="text-xs font-bold text-primary tracking-wide uppercase">
-                        Question {currentQuestionIndex + 1} / {totalQuestions}
-                      </span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => toggleFlag(currentQuestion.questionId)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
-                          flaggedQuestions.has(currentQuestion.questionId)
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'text-text-secondary hover:text-destructive hover:bg-destructive/5'
-                        }`}
-                      >
-                        <Flag className="w-4 h-4" fill={flaggedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
-                        Flag
-                      </button>
-                      <button
-                        onClick={() => toggleBookmark(currentQuestion.questionId)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
-                          bookmarkedQuestions.has(currentQuestion.questionId)
-                            ? 'bg-primary-light text-primary'
-                            : 'text-text-secondary hover:text-primary hover:bg-primary-light'
-                        }`}
-                      >
-                        <Bookmark className="w-4 h-4" fill={bookmarkedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
-                        Save
-                      </button>
+                    <h2 className="text-xl font-bold text-foreground">Question-by-Question Review</h2>
+                    <div className="text-xs font-semibold text-text-secondary px-3 py-1.5 bg-background rounded-full border border-border/30">
+                      {resultCurrentQuestionIndex + 1} of {result.questions.length}
                     </div>
                   </div>
 
-                  <h2 className="text-lg font-bold flex text-foreground leading-relaxed">
-                    {currentQuestion.question}
-                  </h2>
-                </div>
+                  {!isFetchingResult && result.questions.length > 0 && (
+                    <Card className="border-border/40 bg-gradient-to-br from-background via-white/30 to-background shadow-sm">
+                      <CardContent className="p-8">
+                        {(() => {
+                          const resultQuestion = result.questions[resultCurrentQuestionIndex]
+                          const originalQuestion = questions.find((q) => q.questionId === resultQuestion.questionId)
 
-                {/* Options */}
-                <div className="grid gap-3">
-                  {Object.entries(currentQuestion.options)
-                    .sort(([left], [right]) => Number(left) - Number(right))
-                    .map(([optionKey, optionLabel]) => {
-                      const isSelected = selectedAnswers[currentQuestion.questionId] === optionKey
+                          if (!resultQuestion || !originalQuestion) {
+                            return (
+                              <div className="text-center py-8">
+                                <p className="text-sm text-text-secondary">Could not load question details</p>
+                              </div>
+                            )
+                          }
 
-                      return (
-                        <button
-                          key={`${currentQuestion.questionId}-${optionKey}`}
-                          type="button"
-                          onClick={() => handleSelectAnswer(currentQuestion.questionId, optionKey)}
-                          className={`group relative flex items-center p-4 rounded-lg text-left border transition-all duration-200 ${
-                            isSelected
-                              ? 'bg-success-light border-success shadow-soft'
-                              : 'bg-card border-border hover:border-primary/30 hover:shadow-soft'
-                          }`}
-                        >
-                          <div
-                            className={`min-w-fit w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm mr-4 transition-colors flex-shrink-0 ${
-                              isSelected
-                                ? 'bg-success text-white'
-                                : 'bg-muted text-primary group-hover:bg-primary group-hover:text-white'
-                            }`}
-                          >
-                            {optionKey}
-                          </div>
-                          <span className={`text-sm font-medium ${isSelected ? 'text-foreground font-semibold' : 'text-foreground'}`}>
-                            {optionLabel}
-                          </span>
-                          {isSelected && (
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                              <span className="text-success text-lg">✓</span>
+                          return (
+                            <div className="space-y-6">
+                              {/* Question Header */}
+                              <div className="space-y-4 pb-4 border-b border-border/20">
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="flex items-center gap-3">
+                                    {/* <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white ${
+                                      resultQuestion.isCorrect
+                                        ? 'bg-gradient-to-br from-success to-success/80'
+                                        : 'bg-gradient-to-br from-destructive to-destructive/80'
+                                    }`}>
+                                      {resultQuestion.isCorrect ? '✓' : '✕'}
+                                    </div> */}
+                                    <div>
+                                      <p className="text-xs text-text-secondary font-semibold uppercase tracking-wide">Question {resultCurrentQuestionIndex + 1}</p>
+                                      {/* <p className={`text-sm font-semibold ${
+                                        resultQuestion.isCorrect ? 'text-success' : 'text-destructive'
+                                      }`}>
+                                        {resultQuestion.isCorrect ? 'Correct Answer' : 'Incorrect Answer'}
+                                      </p> */}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <h3 className="text-base font-semibold text-foreground leading-relaxed">
+                                  {originalQuestion.question}
+                                </h3>
+                              </div>
+
+                              {/* Options with Comparison */}
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-3">Answer Options</p>
+                                {Object.entries(originalQuestion.options)
+                                  .sort(([left], [right]) => Number(left) - Number(right))
+                                  .map(([optionKey, optionLabel]) => {
+                                    const optionNum = Number(optionKey)
+                                    const isCorrectOption = resultQuestion.correctOption === optionNum
+                                    const isSelectedOption = resultQuestion.selectedOption === optionNum
+                                    const showAsCorrect = isCorrectOption && resultQuestion.isCorrect
+                                    const showAsIncorrect = isSelectedOption && !resultQuestion.isCorrect
+                                    const showAsCorrectAnswer = isCorrectOption && !resultQuestion.isCorrect
+
+                                    return (
+                                      <div
+                                        key={`result-${resultQuestion.questionId}-${optionKey}`}
+                                        className={`relative p-4 rounded-lg border transition-all ${
+                                          showAsCorrect
+                                            ? 'bg-success/5 border-success/30 shadow-sm'
+                                            : showAsIncorrect
+                                            ? 'bg-destructive/5 border-destructive/30 shadow-sm'
+                                            : showAsCorrectAnswer
+                                            ? 'bg-success/5 border-success/30'
+                                            : 'bg-background border-border/30'
+                                        }`}
+                                      >
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex items-start gap-3 flex-1">
+                                            <div
+                                              className={`min-w-fit w-8 h-8 rounded-md flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                                                showAsCorrect
+                                                  ? 'bg-success/20 text-success'
+                                                  : showAsIncorrect
+                                                  ? 'bg-destructive/20 text-destructive'
+                                                  : showAsCorrectAnswer
+                                                  ? 'bg-success/20 text-success'
+                                                  : 'bg-muted text-text-secondary'
+                                              }`}
+                                            >
+                                              {optionKey}
+                                            </div>
+                                            <span className="text-sm text-foreground pt-0.5">
+                                              {optionLabel}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                            {showAsCorrect && (
+                                              <div className="flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded text-xs font-semibold border border-success/20">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Your Answer
+                                              </div>
+                                            )}
+                                            {showAsIncorrect && (
+                                              <div className="flex items-center gap-1 px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-semibold border border-destructive/20">
+                                                <XCircle className="w-3 h-3" />
+                                                Your Answer
+                                              </div>
+                                            )}
+                                            {showAsCorrectAnswer && (
+                                              <div className="flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded text-xs font-semibold border border-success/20">
+                                                <CheckCircle className="w-3 h-3" />
+                                                Correct
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                              </div>
+
+                              {/* Answer Summary */}
+                              <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+                                <p className="text-sm font-semibold text-foreground">Answer Summary</p>
+                                <div className="text-xs space-y-1 text-text-secondary">
+                                  <p>
+                                    Your Answer:{' '}
+                                    <span className="font-semibold text-foreground">
+                                      {resultQuestion.selectedOption
+                                        ? `Option ${resultQuestion.selectedOption} - ${getOptionLabelFromQuestion(
+                                            resultQuestion.questionId,
+                                            resultQuestion.selectedOption
+                                          )}`
+                                        : 'Not answered'}
+                                    </span>
+                                  </p>
+                                  <p>
+                                    Correct Answer:{' '}
+                                    <span className="font-semibold text-success">
+                                      Option {resultQuestion.correctOption} - {getOptionLabelFromQuestion(
+                                        resultQuestion.questionId,
+                                        resultQuestion.correctOption
+                                      )}
+                                    </span>
+                                  </p>
+                                </div>
+
+                                <div className="flex gap-2 pt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="flex items-center gap-1.5 text-xs h-8 px-3"
+                                    onClick={() => handleExplainWithAi(resultQuestion.questionId)}
+                                    disabled={isExplanationLoading}
+                                  >
+                                    {isExplanationLoading ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Generating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Explain with AI
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
-                          )}
-                        </button>
-                      )
-                    })}
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            // Questions View
+            <div className="max-w-3xl mx-auto">
+              {isFetchingQuestions && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-text-secondary">Loading questions...</p>
+                </div>
+              )}
+
+              {!isFetchingQuestions && error && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+
+              {!isFetchingQuestions && !error && totalQuestions === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-text-secondary">No questions available for this assessment.</p>
+                </div>
+              )}
+
+              {!isFetchingQuestions && !error && currentQuestion && (
+                <div className="space-y-6">
+                  {/* Question Header */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="px-3 py-1.5 bg-primary-light rounded-full">
+                        <span className="text-xs font-bold text-primary tracking-wide uppercase">
+                          Question {currentQuestionIndex + 1} / {totalQuestions}
+                        </span>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => toggleFlag(currentQuestion.questionId)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
+                            flaggedQuestions.has(currentQuestion.questionId)
+                              ? 'bg-destructive/10 text-destructive'
+                              : 'text-text-secondary hover:text-destructive hover:bg-destructive/5'
+                          }`}
+                        >
+                          <Flag className="w-4 h-4" fill={flaggedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
+                          Flag
+                        </button>
+                        <button
+                          onClick={() => toggleBookmark(currentQuestion.questionId)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
+                            bookmarkedQuestions.has(currentQuestion.questionId)
+                              ? 'bg-primary-light text-primary'
+                              : 'text-text-secondary hover:text-primary hover:bg-primary-light'
+                          }`}
+                        >
+                          <Bookmark className="w-4 h-4" fill={bookmarkedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
+                          Save
+                        </button>
+                      </div>
+                    </div>
+
+                    <h2 className="text-lg font-bold flex text-foreground leading-relaxed">
+                      {currentQuestion.question}
+                    </h2>
+                  </div>
+
+                  {/* Options */}
+                  <div className="grid gap-3">
+                    {Object.entries(currentQuestion.options)
+                      .sort(([left], [right]) => Number(left) - Number(right))
+                      .map(([optionKey, optionLabel]) => {
+                        const isSelected = selectedAnswers[currentQuestion.questionId] === optionKey
+
+                        return (
+                          <button
+                            key={`${currentQuestion.questionId}-${optionKey}`}
+                            type="button"
+                            onClick={() => handleSelectAnswer(currentQuestion.questionId, optionKey)}
+                            className={`group relative flex items-center p-4 rounded-lg text-left border transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-success-light border-success shadow-soft'
+                                : 'bg-card border-border hover:border-primary/30 hover:shadow-soft'
+                            }`}
+                          >
+                            <div
+                              className={`min-w-fit w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm mr-4 transition-colors flex-shrink-0 ${
+                                isSelected
+                                  ? 'bg-success text-white'
+                                  : 'bg-muted text-primary group-hover:bg-primary group-hover:text-white'
+                              }`}
+                            >
+                              {optionKey}
+                            </div>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-foreground font-semibold' : 'text-foreground'}`}>
+                              {optionLabel}
+                            </span>
+                            {isSelected && (
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                <span className="text-success text-lg">✓</span>
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
 
       {/* Bottom Action Bar */}
       <footer className="fixed bottom-0 left-72 right-0 h-20 bg-card/80 backdrop-blur-lg border-t border-border px-8 flex items-center justify-between z-40">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex items-center gap-2 text-xs h-9"
-          onClick={handlePrevious}
-          disabled={currentQuestionIndex === 0}
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Previous
-        </Button>
+        {showResults && result ? (
+          // Results Navigation
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex items-center gap-2 text-xs h-9"
+              onClick={() => {
+                if (resultCurrentQuestionIndex > 0) {
+                  setResultCurrentQuestionIndex((prev) => prev - 1)
+                }
+              }}
+              disabled={resultCurrentQuestionIndex === 0}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Previous
+            </Button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => currentQuestion && toggleFlag(currentQuestion.questionId)}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-              currentQuestion && flaggedQuestions.has(currentQuestion.questionId)
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-muted text-text-secondary hover:bg-destructive/10 hover:text-destructive'
-            }`}
-            title="Flag for Review"
-          >
-            <Flag className="w-4 h-4" fill={currentQuestion && flaggedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            onClick={() => currentQuestion && toggleBookmark(currentQuestion.questionId)}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-              currentQuestion && bookmarkedQuestions.has(currentQuestion.questionId)
-                ? 'bg-primary-light text-primary'
-                : 'bg-muted text-text-secondary hover:bg-primary-light hover:text-primary'
-            }`}
-            title="Bookmark Question"
-          >
-            <Bookmark className="w-4 h-4" fill={currentQuestion && bookmarkedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
-          </button>
-        </div>
+            <div className="text-xs font-semibold text-text-secondary">
+              Question {resultCurrentQuestionIndex + 1} / {result.questions.length}
+            </div>
 
-        <Button
-          type="button"
-          className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-primary-foreground text-xs h-9 font-semibold shadow-soft"
-          onClick={handleNext}
-          disabled={currentQuestionIndex === totalQuestions - 1}
-        >
-          Next
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="text-xs h-9"
+                onClick={() => router.back()}
+              >
+                Back to Chapter
+              </Button>
+              <Button
+                type="button"
+                className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-primary-foreground text-xs h-9 font-semibold shadow-soft"
+                onClick={() => {
+                  if (resultCurrentQuestionIndex < result.questions.length - 1) {
+                    setResultCurrentQuestionIndex((prev) => prev + 1)
+                  }
+                }}
+                disabled={resultCurrentQuestionIndex === result.questions.length - 1}
+              >
+                Next
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          // Questions Navigation
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex items-center gap-2 text-xs h-9"
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => currentQuestion && toggleFlag(currentQuestion.questionId)}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
+                  currentQuestion && flaggedQuestions.has(currentQuestion.questionId)
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-muted text-text-secondary hover:bg-destructive/10 hover:text-destructive'
+                }`}
+                title="Flag for Review"
+              >
+                <Flag className="w-4 h-4" fill={currentQuestion && flaggedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                onClick={() => currentQuestion && toggleBookmark(currentQuestion.questionId)}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
+                  currentQuestion && bookmarkedQuestions.has(currentQuestion.questionId)
+                    ? 'bg-primary-light text-primary'
+                    : 'bg-muted text-text-secondary hover:bg-primary-light hover:text-primary'
+                }`}
+                title="Bookmark Question"
+              >
+                <Bookmark className="w-4 h-4" fill={currentQuestion && bookmarkedQuestions.has(currentQuestion.questionId) ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+
+            <Button
+              type="button"
+              className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-primary-foreground text-xs h-9 font-semibold shadow-soft"
+              onClick={handleNext}
+              disabled={currentQuestionIndex === totalQuestions - 1}
+            >
+              Next
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </>
+        )}
       </footer>
+
+      {/* Explanation Dialog */}
+      {selectedQuestionForExplanation && result && (
+        <ExplanationDialog
+          isOpen={isExplanationDialogOpen}
+          onClose={() => {
+            setIsExplanationDialogOpen(false)
+            setSelectedQuestionForExplanation(null)
+          }}
+          questionId={selectedQuestionForExplanation}
+          questionText={
+            questions.find((q) => q.questionId === selectedQuestionForExplanation)?.question || ''
+          }
+          explanation={getExplanation(assessmentId, selectedQuestionForExplanation)?.explanation || null}
+          isLoading={isExplanationLoading && selectedQuestionForExplanation === selectedQuestionForExplanation}
+          error={isExplanationLoading ? null : (explanationError || null)}
+        />
+      )}
     </div>
   )
 }
