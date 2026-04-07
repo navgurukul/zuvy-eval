@@ -105,13 +105,9 @@ export default function PerformanceMetrics() {
   )
 
   const isInitialLoading =
-    allSessionsLoading &&
     completedSessionsLoading &&
-    upcomingSessionsLoading &&
     metricsLoading &&
-    allSessions.length === 0 &&
-    completedSessions.length === 0 &&
-    upcomingSlots.length === 0
+    completedSessions.length === 0
 
   return isInitialLoading ? (
     <PerformanceSkeleton />
