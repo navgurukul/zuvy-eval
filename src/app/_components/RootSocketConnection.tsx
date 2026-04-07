@@ -70,6 +70,9 @@ export default function RootSocketConnection() {
 
         socketRef.current = socket
 
+
+        // Connection event handlers
+
         socket.on('connect', () => {
             console.log('WebSocket connected with ID:', socket.id)
             setIsConnected(true)
