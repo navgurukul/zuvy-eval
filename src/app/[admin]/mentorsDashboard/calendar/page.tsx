@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDeleteMentorSlot } from "@/hooks/useDeleteMentorSlot"
 import { useMyMentorSlots, type MentorCreatedSlot } from "@/hooks/useMyMentorSlots"
+import { CalendarSkeleton } from "@/app/[admin]/organizations/[organizationId]/courses/[courseId]/_components/adminSkeleton"
 import { cn } from "@/lib/utils"
 
 const START_HOUR = 7
@@ -551,7 +552,11 @@ export default function CalendarPage() {
     return removed
   }
 
-  return (
+  const isInitialLoading = loading && slots.length === 0
+
+  return isInitialLoading ? (
+    <CalendarSkeleton />
+  ) : (
     <div className="min-h-screen space-y-4 p-6">
       <div className="text-left">
         <h1 className="text-2xl font-semibold">Calendar</h1>
