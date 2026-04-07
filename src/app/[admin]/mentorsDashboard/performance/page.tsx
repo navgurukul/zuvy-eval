@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star } from "lucide-react"
 import { useMyMentorSessions } from "@/hooks/useMyMentorSessions"
 import { useMentorMetrics } from "@/hooks/useMentorMetrics"
+import { PerformanceSkeleton } from "@/app/[admin]/organizations/[organizationId]/courses/[courseId]/_components/adminSkeleton"
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "—"
@@ -103,7 +104,14 @@ export default function PerformanceMetrics() {
     [sessionMix]
   )
 
-  return (
+  const isInitialLoading =
+    completedSessionsLoading &&
+    metricsLoading &&
+    completedSessions.length === 0
+
+  return isInitialLoading ? (
+    <PerformanceSkeleton />
+  ) : (
     <div className="p-6 min-h-screen">
       <div className="text-left mb-6">
         <h1 className="text-xl font-semibold">Performance Metrics</h1>

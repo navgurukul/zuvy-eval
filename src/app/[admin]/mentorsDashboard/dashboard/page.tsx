@@ -24,6 +24,7 @@ import { useMyMentorSlots } from "@/hooks/useMyMentorSlots"
 import { useMyMentorSessions, type MyMentorSession } from "@/hooks/useMyMentorSessions"
 import { useMentorMetrics } from "@/hooks/useMentorMetrics"
 import { useNotifications } from "@/hooks/useNotifications"
+import { MentorDashboardSkeleton } from "@/app/[admin]/organizations/[organizationId]/courses/[courseId]/_components/adminSkeleton"
 import { Progress } from "@nextui-org/react"
 import { cn } from "@/lib/utils"
 
@@ -194,6 +195,12 @@ export default function DashboardPage() {
     markingRead,
   } = useNotifications()
 
+  const isInitialLoading =
+    slotsLoading ||
+    completedSessionsLoading ||
+    metricsLoading ||
+    notificationsLoading
+
   const upcomingSlots = useMemo(
     () => {
       const nowMs = Date.now()
@@ -238,7 +245,9 @@ export default function DashboardPage() {
   const cancellationRate = Number(metrics?.sessions.cancellationRate) || 0
   const utilizationRate = Number(metrics?.utilization.utilizationRate) || 0
 
-  return (
+  return isInitialLoading ? (
+    <MentorDashboardSkeleton />
+  ) : (
     <div className="space-y-6">
       <div className="text-left">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
