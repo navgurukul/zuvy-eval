@@ -74,7 +74,7 @@ export default function RootSocketConnection() {
         // Connection event handlers
 
         socket.on('connect', () => {
-            console.log('WebSocket connected with ID:', socket.id)
+            console.log('WebSocket connected Successfully with ID:', socket.id)
             setIsConnected(true)
         })
 
