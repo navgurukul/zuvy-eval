@@ -16,6 +16,7 @@ import { useRescheduleMentorSlotBooking } from "@/hooks/useRescheduleMentorSlotB
 import { useMarkMentorSlotAttendance } from "@/hooks/useMarkMentorSlotAttendance"
 import { useCompleteMentorSlotSession } from "@/hooks/useCompleteMentorSlotSession"
 import { useSubmitMentorSlotFeedback } from "@/hooks/useSubmitMentorSlotFeedback"
+import { SessionsSkeleton } from "@/app/[admin]/organizations/[organizationId]/courses/[courseId]/_components/adminSkeleton"
 import { toast } from "@/components/ui/use-toast"
 
 type SessionTab = "all" | "upcoming" | "reschedule" | "completed"
@@ -108,6 +109,11 @@ export default function SessionsPage() {
   const [locallySubmittedBookingIds, setLocallySubmittedBookingIds] = useState<
     Record<number, true>
   >({})
+
+  const { counts: summaryCounts } = useMyMentorSessions(
+    true,
+    "/mentor-sessions/mentor/my"
+  )
 
   const {
     sessions: apiSessions,
@@ -404,7 +410,11 @@ export default function SessionsPage() {
     })
   }, [rescheduleError])
 
-  return (
+  const isInitialLoading = loading && sessions.length === 0
+
+  return isInitialLoading ? (
+    <SessionsSkeleton />
+  ) : (
     <div className="p-6">
       <div className="mb-6 text-left">
         <h1 className="text-xl font-semibold">Sessions</h1>
@@ -428,7 +438,7 @@ export default function SessionsPage() {
             >
               All
               <span className="bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {apiSessions.length}
+                {Number(summaryCounts.total) || 0}
               </span>
             </button>
 
@@ -437,12 +447,15 @@ export default function SessionsPage() {
                 setActiveTab("upcoming")
                 setSelectedBookingId(null)
               }}
-              className={`px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "upcoming"
+              className={`flex items-center gap-2 px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "upcoming"
                   ? "border-green-600 bg-green-50 font-semibold"
                   : "border-transparent text-muted-foreground"
                 }`}
             >
               Upcoming
+              <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {Number(summaryCounts.upcoming) || 0}
+              </span>
             </button>
 
             <button
@@ -450,12 +463,15 @@ export default function SessionsPage() {
                 setActiveTab("reschedule")
                 setSelectedBookingId(null)
               }}
-              className={`px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "reschedule"
+              className={`flex items-center gap-2 px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "reschedule"
                   ? "border-green-600 bg-green-50 font-semibold"
                   : "border-transparent text-muted-foreground"
                 }`}
             >
               Reschedule Requests
+              <span className="bg-orange-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {Number(summaryCounts.reschedule) || 0}
+              </span>
             </button>
 
             <button
@@ -463,12 +479,15 @@ export default function SessionsPage() {
                 setActiveTab("completed")
                 setSelectedBookingId(null)
               }}
-              className={`px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "completed"
+              className={`flex items-center gap-2 px-3 py-2 text-sm border-b-2 rounded-t-lg ${activeTab === "completed"
                   ? "border-green-600 bg-green-50 font-semibold"
                   : "border-transparent text-muted-foreground"
                 }`}
             >
               Completed
+              <span className="bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {Number(summaryCounts.completed) || 0}
+              </span>
             </button>
           </div>
 
