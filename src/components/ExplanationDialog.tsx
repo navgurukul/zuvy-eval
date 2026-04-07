@@ -61,12 +61,12 @@ export const ExplanationDialog: React.FC<ExplanationDialogProps> = ({
             <DialogTitle className="text-lg font-bold text-foreground">Question Explanation</DialogTitle>
             <p className="text-xs text-text-secondary mt-2 font-medium">Question #{questionId}</p>
           </div>
-          <button
+          {/* <button
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-background transition-colors"
           >
             <X className="w-5 h-5 text-text-secondary" />
-          </button>
+          </button> */}
         </DialogHeader>
 
         <div className="space-y-4">
@@ -78,7 +78,7 @@ export const ExplanationDialog: React.FC<ExplanationDialogProps> = ({
 
           {/* Explanation Display */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex text-left gap-2">
               <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">AI Explanation</p>
               {(isLoading || isTyping) && (
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium">
@@ -103,7 +103,7 @@ export const ExplanationDialog: React.FC<ExplanationDialogProps> = ({
                   </div>
                 ) : explanation ? (
                   <div>
-                    <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                    <p className="text-sm text-left leading-relaxed text-foreground whitespace-pre-wrap">
                       {displayedText}
                       {isTyping && <span className="animate-pulse">|</span>}
                     </p>
