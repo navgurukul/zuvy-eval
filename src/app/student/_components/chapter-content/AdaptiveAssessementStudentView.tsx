@@ -67,7 +67,7 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
   }
 
   return (
-    <section className="relative w-full overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-[#f8fbff] via-background to-[#f4f8ff] p-4 md:p-5">
+    <section className="relative w-full overflow-y-auto overflow-x-hidden h-full rounded-2xl border border-border/60 bg-gradient-to-br from-[#f8fbff] via-background to-[#f4f8ff] p-4 md:p-5">
       <div className="pointer-events-none absolute -left-16 -top-10 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
 
@@ -153,7 +153,7 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
                   </div>
 
                   <div className="flex items-center justify-end md:justify-start">
-                    {assessments[0].studentStatus === 1 ? (
+                    {assessment.studentStatus === 1 ? (
                       <Button
                         type="button"
                         className="h-9 rounded-lg px-4 text-xs disabled:"
@@ -166,7 +166,7 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
                         type="button"
                         className="h-9 rounded-lg px-4 text-xs"
                         onClick={() => handleStartAssessment(assessment.id)}
-                        disabled={!bootcampId}
+                        
                     >
                       Start Assessment
                     </Button>)}

@@ -12,6 +12,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { usePublishAssessment } from '@/hooks/usePublishAssessment';
+import { useDraftAssessment } from '@/hooks/useDraftAssessment';
+import { useScheduleAssessment } from '@/hooks/useScheduleAssessment';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import {
@@ -31,13 +33,27 @@ interface FinalActionsSectionProps {
 export function FinalActionsSection({ setName, assessmentId, onAction }: FinalActionsSectionProps) {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState('');
+  const [scheduleStartDate, setScheduleStartDate] = useState<Date | undefined>(undefined);
+  const [scheduleStartTime, setScheduleStartTime] = useState('');
+  const [scheduleEndDate, setScheduleEndDate] = useState<Date | undefined>(undefined);
+  const [scheduleEndTime, setScheduleEndTime] = useState('');
   const { publishAssessment, isLoading: isPublishing } = usePublishAssessment();
+  const { draftAssessment, isLoading: isDrafting } = useDraftAssessment();
+  const { scheduleAssessment, isLoading: isScheduling } = useScheduleAssessment();
 
   const handlePublishClick = () => {
     if (selectedAction === 'publish') {
       setShowPublishDialog(true);
+    } else if (selectedAction === 'draft') {
+      setShowDraftDialog(true);
+    } else if (selectedAction === 'schedule') {
+      setShowScheduleDialog(true);
     } else {
       onAction(selectedAction as 'publish' | 'draft' | 'schedule');
     }
@@ -77,6 +93,84 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
       setSelectedTime('');
       setSelectedAction(null);
       onAction('publish');
+    } catch (err) {
+      // Error is already handled in the hook and toast
+    }
+  };
+
+  const handleDraftConfirm = async () => {
+    if (!assessmentId) {
+      toast.error({
+        title: 'Missing Assessment ID',
+        description: 'Assessment ID is required to save draft.',
+      });
+      return;
+    }
+
+    try {
+      await draftAssessment(assessmentId);
+      toast.success({
+        title: 'Saved as Draft',
+        description: 'Your assessment has been saved as draft successfully.',
+      });
+      setShowDraftDialog(false);
+      setSelectedAction(null);
+      onAction('draft');
+    } catch (err) {
+      // Error is already handled in the hook and toast
+    }
+  };
+
+  const handleScheduleConfirm = async () => {
+    if (!scheduleStartDate || !scheduleStartTime || !scheduleEndDate || !scheduleEndTime) {
+      toast.error({
+        title: 'Complete Information Required',
+        description: 'Please select both start and end dates with times.',
+      });
+      return;
+    }
+
+    if (!assessmentId) {
+      toast.error({
+        title: 'Missing Assessment ID',
+        description: 'Assessment ID is required to schedule.',
+      });
+      return;
+    }
+
+    // Validate that end date/time is after start date/time
+    const [startHours, startMinutes] = scheduleStartTime.split(':');
+    const startDateTime = new Date(scheduleStartDate);
+    startDateTime.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0);
+
+    const [endHours, endMinutes] = scheduleEndTime.split(':');
+    const endDateTime = new Date(scheduleEndDate);
+    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
+
+    if (endDateTime <= startDateTime) {
+      toast.error({
+        title: 'Invalid Schedule',
+        description: 'End date and time must be after start date and time.',
+      });
+      return;
+    }
+
+    try {
+      await scheduleAssessment(assessmentId, {
+        startDatetime: startDateTime.toISOString(),
+        endDatetime: endDateTime.toISOString(),
+      });
+      toast.success({
+        title: 'Scheduled Successfully',
+        description: 'Your assessment has been scheduled successfully.',
+      });
+      setShowScheduleDialog(false);
+      setScheduleStartDate(undefined);
+      setScheduleStartTime('');
+      setScheduleEndDate(undefined);
+      setScheduleEndTime('');
+      setSelectedAction(null);
+      onAction('schedule');
     } catch (err) {
       // Error is already handled in the hook and toast
     }
@@ -509,6 +603,216 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
                 </>
               ) : (
                 'Publish Assessment'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Draft Dialog */}
+      <Dialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <DialogContent className="w-1/3 p-0">
+          <div className="overflow-hidden rounded-lg">
+            <Card className="border-0 shadow-none">
+              <CardContent className="p-4">
+                <DialogHeader className="mb-4">
+                  <DialogTitle>Save Assessment as Draft</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <p className="text-sm text-left text-text-secondary">
+                    Saving this assessment as a draft will allow you to:
+                  </p>
+                  <ul className="space-y-2 text-sm text-text-secondary">
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>Edit the assessment questions and settings later</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>Publish it when youre ready</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-primary mt-1">•</span>
+                      <span>Schedule it for a specific date and time</span>
+                    </li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setShowDraftDialog(false)}
+              disabled={isDrafting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDraftConfirm}
+              disabled={isDrafting}
+              className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary"
+            >
+              {isDrafting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save as Draft'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Dialog */}
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="max-w-md p-0">
+          <div className="overflow-hidden rounded-lg">
+            <Card className="border-0 shadow-none">
+              <CardContent className="p-6">
+                <DialogHeader className="mb-6">
+                  <DialogTitle>Schedule Assessment</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Start Date & Time</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          readOnly
+                          value={scheduleStartDate ? scheduleStartDate.toLocaleDateString() : ''}
+                          onClick={() => setShowStartCalendar(!showStartCalendar)}
+                          placeholder="Select date"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background cursor-pointer text-sm"
+                        />
+                        {showStartCalendar && (
+                          <div className="fixed z-50 bg-background border border-border rounded-md shadow-lg p-3">
+                            <Calendar
+                              mode="single"
+                              selected={scheduleStartDate}
+                              onSelect={(date) => {
+                                setScheduleStartDate(date);
+                                setShowStartCalendar(false);
+                              }}
+                              disabled={(date) => {
+                                const today = new Date();
+                                const checkDate = new Date(date);
+                                today.setHours(0, 0, 0, 0);
+                                checkDate.setHours(0, 0, 0, 0);
+                                return checkDate < today;
+                              }}
+                              className="p-0"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <Select value={scheduleStartTime} onValueChange={setScheduleStartTime}>
+                        <SelectTrigger className="w-24">
+                          <SelectValue placeholder="Time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 48 }, (_, i) => {
+                            const hours = Math.floor(i / 2);
+                            const minutes = (i % 2) * 30;
+                            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                            return (
+                              <SelectItem key={timeString} value={timeString}>
+                                {timeString}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">End Date & Time</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          readOnly
+                          value={scheduleEndDate ? scheduleEndDate.toLocaleDateString() : ''}
+                          onClick={() => setShowEndCalendar(!showEndCalendar)}
+                          placeholder="Select date"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background cursor-pointer text-sm"
+                        />
+                        {showEndCalendar && (
+                          <div className="fixed z-50 bg-background border border-border rounded-md shadow-lg p-3">
+                            <Calendar
+                              mode="single"
+                              selected={scheduleEndDate}
+                              onSelect={(date) => {
+                                setScheduleEndDate(date);
+                                setShowEndCalendar(false);
+                              }}
+                              disabled={(date) => {
+                                const today = new Date();
+                                const checkDate = new Date(date);
+                                today.setHours(0, 0, 0, 0);
+                                checkDate.setHours(0, 0, 0, 0);
+                                return checkDate < today;
+                              }}
+                              className="p-0"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <Select value={scheduleEndTime} onValueChange={setScheduleEndTime}>
+                        <SelectTrigger className="w-24">
+                          <SelectValue placeholder="Time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 48 }, (_, i) => {
+                            const hours = Math.floor(i / 2);
+                            const minutes = (i % 2) * 30;
+                            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                            return (
+                              <SelectItem key={timeString} value={timeString}>
+                                {timeString}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowScheduleDialog(false);
+                setShowStartCalendar(false);
+                setShowEndCalendar(false);
+                setScheduleStartDate(undefined);
+                setScheduleStartTime('');
+                setScheduleEndDate(undefined);
+                setScheduleEndTime('');
+              }}
+              disabled={isScheduling}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleScheduleConfirm}
+              disabled={isScheduling}
+              className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary"
+            >
+              {isScheduling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                'Schedule Assessment'
               )}
             </Button>
           </DialogFooter>

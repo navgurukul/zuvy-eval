@@ -219,6 +219,20 @@ const AdaptiveAssessment = (props: any) => {
     };
   }, [fetchAssessments, fetchQuestionSets, routeBootcampId, routeChapterId]);
 
+  // Auto-clear finalAction after 5 seconds to show FinalActionsSection again
+  useEffect(() => {
+    if (state.finalAction) {
+      const timeoutId = setTimeout(() => {
+        setState((prev) => ({
+          ...prev,
+          finalAction: null,
+        }));
+      }, 5000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.finalAction]);
+
   const updateState = (updates: Partial<WizardState>) => {
     setState(prev => ({ ...prev, ...updates }));
   };
