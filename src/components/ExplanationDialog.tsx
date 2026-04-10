@@ -58,7 +58,7 @@ export const ExplanationDialog: React.FC<ExplanationDialogProps> = ({
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader className="flex items-start justify-between">
           <div className="flex-1">
-            <DialogTitle className="text-lg font-bold text-foreground">Question Explanation</DialogTitle>
+            <DialogTitle className="text-lg  font-bold text-foreground">Question Explanation</DialogTitle>
             <p className="text-xs text-text-secondary mt-2 font-medium">Question #{questionId}</p>
           </div>
           {/* <button
@@ -72,8 +72,8 @@ export const ExplanationDialog: React.FC<ExplanationDialogProps> = ({
         <div className="space-y-4">
           {/* Question Display */}
           <div className="p-4 rounded-lg border border-border/30 bg-background">
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-2">Question</p>
-            <p className="text-sm text-foreground leading-relaxed">{questionText}</p>
+            <p className="text-xs font-semibold uppercase text-left tracking-widest text-text-secondary mb-2">Question</p>
+            <p className="text-sm text-left text-foreground leading-relaxed">{questionText}</p>
           </div>
 
           {/* Explanation Display */}

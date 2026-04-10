@@ -37,6 +37,7 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
+  const [showPublishCalendar, setShowPublishCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState('');
   const [scheduleStartDate, setScheduleStartDate] = useState<Date | undefined>(undefined);
@@ -60,7 +61,7 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
   };
 
   const handlePublishConfirm = async () => {
-    if (!selectedDate || !selectedTime) {
+    if (!selectedDate || !selectedTime || selectedTime.length === 0) {
       toast.error({
         title: 'Date & Time Required',
         description: 'Please select both date and time for the assessment end.',
@@ -77,11 +78,15 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
     }
 
     try {
-      // Parse time string (HH:MM)
+      // Parse time string (HH:MM) and format with IST offset
       const [hours, minutes] = selectedTime.split(':');
       const dateTime = new Date(selectedDate);
       dateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      const endDatetime = dateTime.toISOString();
+      // Format as ISO string with IST offset (+05:30)
+      const year = dateTime.getFullYear();
+      const month = String(dateTime.getMonth() + 1).padStart(2, '0');
+      const day = String(dateTime.getDate()).padStart(2, '0');
+      const endDatetime = `${year}-${month}-${day}T${selectedTime}:00+05:30`;
 
       await publishAssessment(assessmentId, { endDatetime });
       toast.success({
@@ -122,7 +127,7 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
   };
 
   const handleScheduleConfirm = async () => {
-    if (!scheduleStartDate || !scheduleStartTime || !scheduleEndDate || !scheduleEndTime) {
+    if (!scheduleStartDate || !scheduleStartTime || !scheduleEndDate || !scheduleEndTime || scheduleStartTime.length === 0 || scheduleEndTime.length === 0) {
       toast.error({
         title: 'Complete Information Required',
         description: 'Please select both start and end dates with times.',
@@ -156,9 +161,20 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
     }
 
     try {
+      // Format dates with IST offset (+05:30)
+      const formatDateTimeWithIST = (date: Date, time: string) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}T${time}:00+05:30`;
+      };
+
+      const startDatetime = formatDateTimeWithIST(scheduleStartDate, scheduleStartTime);
+      const endDatetime = formatDateTimeWithIST(scheduleEndDate, scheduleEndTime);
+
       await scheduleAssessment(assessmentId, {
-        startDatetime: startDateTime.toISOString(),
-        endDatetime: endDateTime.toISOString(),
+        startDatetime,
+        endDatetime,
       });
       toast.success({
         title: 'Scheduled Successfully',
@@ -527,56 +543,58 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
 
       {/* Publish Dialog */}
       <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-        <DialogContent className="w-1/4 p-0">
+        <DialogContent className="max-w-md p-0">
           <div className="overflow-hidden rounded-lg">
             <Card className="border-0 shadow-none">
-              <CardContent className="p-4">
-                <DialogHeader className="mb-4">
+              <CardContent className="p-6">
+                <DialogHeader className="mb-6">
                   <DialogTitle>Set Assessment End Date & Time</DialogTitle>
                 </DialogHeader>
-                <div className="flex justify-center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    disabled={(date) => {
-                      const today = new Date();
-                      const checkDate = new Date(date);
-                      today.setHours(0, 0, 0, 0);
-                      checkDate.setHours(0, 0, 0, 0);
-                      return checkDate < today;
-                    }}
-                    className="p-0"
-                  />
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">End Date & Time</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        readOnly
+                        value={selectedDate ? selectedDate.toLocaleDateString() : ''}
+                        onClick={() => setShowPublishCalendar(!showPublishCalendar)}
+                        placeholder="Select date"
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background cursor-pointer text-sm"
+                      />
+                      {showPublishCalendar && (
+                        <div className="fixed z-50 bg-background border border-border rounded-md shadow-lg p-3">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => {
+                              setSelectedDate(date);
+                              setShowPublishCalendar(false);
+                            }}
+                            disabled={(date) => {
+                              const today = new Date();
+                              const checkDate = new Date(date);
+                              today.setHours(0, 0, 0, 0);
+                              checkDate.setHours(0, 0, 0, 0);
+                              return checkDate < today;
+                            }}
+                            className="p-0"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="time"
+                      value={selectedTime}
+                      onChange={(e) => setSelectedTime(e.target.value)}
+                      className="w-24 px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    />
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    Students will not be able to attempt after this date and time.
+                  </p>
                 </div>
               </CardContent>
-              {selectedDate && (
-                <CardFooter className="border-t bg-card p-4 flex-col gap-4">
-                  <div className="w-full space-y-2">
-                    <Label htmlFor="end-time" className="text-sm flex">End Time</Label>
-                    <Select value={selectedTime} onValueChange={setSelectedTime}>
-                      <SelectTrigger id="end-time" className="w-full">
-                        <SelectValue placeholder="Select end time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 48 }, (_, i) => {
-                          const hours = Math.floor(i / 2);
-                          const minutes = (i % 2) * 30;
-                          const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                          return (
-                            <SelectItem key={timeString} value={timeString}>
-                              {timeString}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-text-secondary">
-                      Students will not be able to attempt after this date and time.
-                    </p>
-                  </div>
-                </CardFooter>
-              )}
             </Card>
           </div>
           <DialogFooter className="px-6 py-4 border-t">
@@ -584,6 +602,7 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
               variant="outline"
               onClick={() => {
                 setShowPublishDialog(false);
+                setShowPublishCalendar(false);
                 setSelectedDate(undefined);
                 setSelectedTime('');
               }}
@@ -709,23 +728,12 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
                           </div>
                         )}
                       </div>
-                      <Select value={scheduleStartTime} onValueChange={setScheduleStartTime}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue placeholder="Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 48 }, (_, i) => {
-                            const hours = Math.floor(i / 2);
-                            const minutes = (i % 2) * 30;
-                            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                            return (
-                              <SelectItem key={timeString} value={timeString}>
-                                {timeString}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                      <input
+                        type="time"
+                        value={scheduleStartTime}
+                        onChange={(e) => setScheduleStartTime(e.target.value)}
+                        className="w-24 px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      />
                     </div>
                   </div>
 
@@ -762,23 +770,12 @@ export function FinalActionsSection({ setName, assessmentId, onAction }: FinalAc
                           </div>
                         )}
                       </div>
-                      <Select value={scheduleEndTime} onValueChange={setScheduleEndTime}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue placeholder="Time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 48 }, (_, i) => {
-                            const hours = Math.floor(i / 2);
-                            const minutes = (i % 2) * 30;
-                            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                            return (
-                              <SelectItem key={timeString} value={timeString}>
-                                {timeString}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                      <input
+                        type="time"
+                        value={scheduleEndTime}
+                        onChange={(e) => setScheduleEndTime(e.target.value)}
+                        className="w-24 px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      />
                     </div>
                   </div>
                 </div>
