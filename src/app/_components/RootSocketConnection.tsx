@@ -20,8 +20,10 @@ const GENERATION_STATUS_LINES = [
 
 export default function RootSocketConnection() {
     const socketRef = useRef<Socket | null>(null)
+    const hasWarnedMissingUrlRef = useRef(false)
     const generatedQuestionsCountRef = useRef(0)
     const hasShownCompletionToastRef = useRef(false)
+    const [isSocketDisabled, setIsSocketDisabled] = useState(false)
     const [retryKey, setRetryKey] = useState(0)
     const [statusLineIndex, setStatusLineIndex] = useState(0)
     const { user } = getUser()
@@ -39,6 +41,21 @@ export default function RootSocketConnection() {
 
     useEffect(() => {
         const accessToken = localStorage.getItem('access_token')
+
+        if (!API_URL) {
+            if (!hasWarnedMissingUrlRef.current) {
+                console.error(
+                    'Missing NEXT_PUBLIC_EVAL_URL; socket connection disabled.'
+                )
+                hasWarnedMissingUrlRef.current = true
+            }
+            setIsConnected(false)
+            stopGeneratingQuestions()
+            setIsSocketDisabled(true)
+            return
+        }
+
+        setIsSocketDisabled(false)
 
         if (!accessToken || !user?.id) {
             setIsConnected(false)
@@ -58,6 +75,11 @@ export default function RootSocketConnection() {
             return
         }
 
+        if (socketRef.current) {
+            socketRef.current.disconnect()
+            socketRef.current = null
+        }
+
         const socket = io(API_URL, {
             auth: { token: accessToken },
             transports: ['websocket', 'polling'],
@@ -70,52 +92,62 @@ export default function RootSocketConnection() {
 
         socketRef.current = socket
 
-        socket.on('connect', () => {
+        const handleConnect = () => {
             console.log('WebSocket connected with ID:', socket.id)
             setIsConnected(true)
-        })
+        }
 
-        socket.on('disconnect', (reason) => {
+        const handleDisconnect = (reason: string) => {
             console.warn('WebSocket disconnected:', reason)
             setIsConnected(false)
-        })
+        }
 
-        socket.on(
-            'questions:ready',
-            (data: { count: number; questionIds: number[] }) => {
-                setLastQuestionsReadyEvent({
-                    count: data.count,
-                    questionIds: data.questionIds,
-                    receivedAt: Date.now(),
+        const handleQuestionsReady = (data: {
+            count: number
+            questionIds: number[]
+        }) => {
+            setLastQuestionsReadyEvent({
+                count: data.count,
+                questionIds: data.questionIds,
+                receivedAt: Date.now(),
+            })
+            generatedQuestionsCountRef.current += data.count
+            incrementCompletedJobs()
+
+            const state = getSocketConnectionStore.getState()
+            const safeTotalJobs = Math.max(1, state.totalJobs)
+            const committedProgress = Math.floor(
+                (state.completedJobs / safeTotalJobs) * 100
+            )
+            setGenerationProgress(committedProgress)
+
+            if (
+                state.completedJobs >= safeTotalJobs &&
+                !hasShownCompletionToastRef.current
+            ) {
+                hasShownCompletionToastRef.current = true
+                toast.success({
+                    title: 'Questions Generated Successfully!',
+                    description: `${generatedQuestionsCountRef.current} MCQ questions have been generated and indexed.`,
                 })
-                generatedQuestionsCountRef.current += data.count
-                incrementCompletedJobs()
-
-                const state = getSocketConnectionStore.getState()
-                const safeTotalJobs = Math.max(1, state.totalJobs)
-                const committedProgress = Math.floor(
-                    (state.completedJobs / safeTotalJobs) * 100
-                )
-                setGenerationProgress(committedProgress)
-
-                if (
-                    state.completedJobs >= safeTotalJobs &&
-                    !hasShownCompletionToastRef.current
-                ) {
-                    hasShownCompletionToastRef.current = true
-                    toast.success({
-                        title: 'Questions Generated Successfully!',
-                        description: `${generatedQuestionsCountRef.current} MCQ questions have been generated and indexed.`,
-                    })
-                }
             }
-        )
+        }
 
-        socket.on('connect_error', (err) => {
+        const handleConnectError = (err: Error) => {
             console.error('WebSocket connection error:', err.message)
-        })
+            setIsConnected(false)
+        }
+
+        socket.on('connect', handleConnect)
+        socket.on('disconnect', handleDisconnect)
+        socket.on('questions:ready', handleQuestionsReady)
+        socket.on('connect_error', handleConnectError)
 
         return () => {
+            socket.off('connect', handleConnect)
+            socket.off('disconnect', handleDisconnect)
+            socket.off('questions:ready', handleQuestionsReady)
+            socket.off('connect_error', handleConnectError)
             socket.disconnect()
             setIsConnected(false)
             socketRef.current = null
@@ -227,6 +259,24 @@ export default function RootSocketConnection() {
             aria-live="polite"
             aria-atomic="true"
         >
+            {isSocketDisabled && (
+                <div className="pointer-events-auto mb-3 w-[280px] rounded-lg border border-border bg-background/95 px-3 py-2 text-left text-xs text-foreground shadow-lg backdrop-blur">
+                    <p className="font-medium">Realtime sync disabled</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                        Set NEXT_PUBLIC_EVAL_URL to enable socket updates.
+                    </p>
+                    <button
+                        type="button"
+                        className="mt-2 inline-flex items-center rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
+                        onClick={() => {
+                            hasWarnedMissingUrlRef.current = false
+                            setRetryKey((value) => value + 1)
+                        }}
+                    >
+                        Try again
+                    </button>
+                </div>
+            )}
             {isGeneratingQuestions && (
                 <div className="min-w-[220px] max-w-[260px] rounded-lg border border-border bg-background/90 shadow-lg backdrop-blur px-3 py-2">
                     <div className="flex items-center gap-2">
