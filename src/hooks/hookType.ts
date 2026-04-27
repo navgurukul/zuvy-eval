@@ -484,6 +484,7 @@ export interface LatestUpdatedCourseData {
   bootcampId: number;
   bootcampName: string;
   newChapter: NewChapter;
+  mentorshipEnabled?: boolean;
 }
 
 export interface LatestUpdatedCourseResponse {
@@ -661,8 +662,24 @@ export interface Event {
   chapterId: number;
 }
 
+export interface MentorSessionEvent {
+  type: "Mentor Session";
+  id: number;
+  mentorName: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  sessionStatus: string;
+  bookingStatus: string;
+  meetingLink: string | null;
+  meetingType: string;
+  slotType: string;
+  eventDate: string;
+}
+
 export interface UpcomingEventsData {
   events: Event[];
+  mentorSessions?: MentorSessionEvent[];
   totalEvents: number;
   totalPages: number;
 }
@@ -676,6 +693,7 @@ export interface UseUpcomingEventsReturn {
 export interface BootcampSettingsData {
   type: string;
   isModuleLocked: boolean;
+  mentorshipEnabled: boolean;
 }
 
 export interface UseBootcampSettingsReturn {
