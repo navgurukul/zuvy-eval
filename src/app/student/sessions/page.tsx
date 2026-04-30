@@ -12,6 +12,7 @@ import {
   useMyMentorSessions,
   type SessionFilter,
 } from "@/hooks/useMyMentorSessions"
+import { useMentorSlotRecording } from "@/hooks/useMentorSlotRecording"
 import {
   CalendarDays,
   Calendar,
@@ -75,6 +76,26 @@ const getMentorAvatarFallback = (mentorName: string | null | undefined, mentorUs
   }
 
   return `M${String(mentorUserId).slice(-1)}`
+}
+
+function RecordingLink({ bookingId }: { bookingId: number }) {
+  const { recordingUrl } = useMentorSlotRecording(bookingId, true)
+
+  if (!recordingUrl) {
+    return null
+  }
+
+  return (
+    <Button  size="sm" asChild>
+      <a
+        href={recordingUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View Recording
+      </a>
+    </Button>
+  )
 }
 
 export default function MySessions() {
@@ -231,8 +252,8 @@ export default function MySessions() {
 
                 <div className="flex gap-3">
 
-                  <Avatar className="bg-green-700 text-white">
-                    <AvatarFallback>
+                  <Avatar>
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">
                       {getMentorAvatarFallback(session.mentorName, session.mentorUserId)}
                     </AvatarFallback>
                   </Avatar>
@@ -251,7 +272,7 @@ export default function MySessions() {
 
                 </div>
 
-                <Badge variant="outline">
+                <Badge className="bg-destructive-light text-destructive">
                   Cancelled
                 </Badge>
 
@@ -342,7 +363,7 @@ export default function MySessions() {
               <div className="flex justify-between">
                 <div className="flex gap-3">
                   <Avatar>
-                    <AvatarFallback>{getMentorAvatarFallback(session.mentorName, session.mentorUserId)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">{getMentorAvatarFallback(session.mentorName, session.mentorUserId)}</AvatarFallback>
                   </Avatar>
 
                   <div>
@@ -384,13 +405,17 @@ export default function MySessions() {
                 <p>
                   Areas of improvement: {session.mentorFeedback?.areasOfImprovement?.trim() || "-"}
                 </p>
+                <RecordingLink bookingId={session.id} />
               </div>
             </CardContent>
           </Card>
         ))}
 
       {activeTab === "upcoming" && counts.upcoming > 0 &&
-        sessions.map((session) => (
+        sessions.map((session) => {
+          const joinUrl = session.zoomStartUrl?.trim() || ""
+
+          return (
           <Card key={session.id} className="rounded-3xl">
             <CardContent className="p-6 rounded-3xl">
 
@@ -399,7 +424,7 @@ export default function MySessions() {
                 <div className="flex gap-3">
 
                   <Avatar>
-                    <AvatarFallback>{getMentorAvatarFallback(session.mentorName, session.mentorUserId)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">{getMentorAvatarFallback(session.mentorName, session.mentorUserId)}</AvatarFallback>
                   </Avatar>
 
                   <div>
@@ -444,12 +469,12 @@ export default function MySessions() {
             <CardFooter className="flex gap-3">
               <Button
                 className="flex gap-2"
-                asChild={!!session.meetingLink}
-                disabled={!session.meetingLink}
+                asChild={!!joinUrl}
+                disabled={!joinUrl}
               >
-                {session.meetingLink ? (
+                {joinUrl ? (
                   <Link
-                    href={`/student/sessions/${session.id}/join?meetingLink=${encodeURIComponent(session.meetingLink)}`}
+                    href={`/student/sessions/${session.id}/join?joinUrl=${encodeURIComponent(joinUrl)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -480,7 +505,8 @@ export default function MySessions() {
 
             </CardFooter>
           </Card>
-        ))}
+          )
+        })}
 
       {activeTab === "upcoming" && counts.upcoming === 0 && (
         <Card className="rounded-3xl border">

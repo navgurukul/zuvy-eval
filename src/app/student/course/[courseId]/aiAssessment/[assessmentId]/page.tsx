@@ -69,6 +69,7 @@ const AssessmentQuestionsPage = () => {
   }, [assessmentMeta?.studentStatus, assessmentId, fetchResult, showResults, isFetchingResult])
 
   const totalQuestions = questions.length
+  const attemptedQuestionsCount = Object.keys(selectedAnswers).length
 
   const currentQuestion = useMemo(() => {
     if (totalQuestions === 0) return null
@@ -90,6 +91,15 @@ const AssessmentQuestionsPage = () => {
     if (currentQuestionIndex < totalQuestions - 1) {
       setCurrentQuestionIndex((prev) => prev + 1)
     }
+  }
+
+  const handleCloseTab = () => {
+    if (typeof window !== 'undefined' && window.opener) {
+      window.close()
+      return
+    }
+
+    router.back()
   }
 
   const handleSelectAnswer = (questionId: number, optionKey: string) => {
@@ -229,20 +239,20 @@ const AssessmentQuestionsPage = () => {
               <div className="w-24 h-1.5 bg-border rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-primary to-accent transition-all"
-                  style={{ width: `${totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0}%` }}
+                  style={{ width: `${totalQuestions > 0 ? (attemptedQuestionsCount / totalQuestions) * 100 : 0}%` }}
                 ></div>
               </div>
               <span className="text-xs font-semibold text-primary">
-                {totalQuestions > 0 ? Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100) : 0}%
+                {totalQuestions > 0 ? Math.round((attemptedQuestionsCount / totalQuestions) * 100) : 0}%
               </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        {/* <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-lg border border-border">
             <span className="text-xs font-semibold text-foreground">⏱ 45:12</span>
           </div>
-        </div>
+        </div> */}
       </header>
 
       {/* Main Layout */}
@@ -704,7 +714,7 @@ const AssessmentQuestionsPage = () => {
                 type="button"
                 variant="outline"
                 className="text-xs h-9"
-                onClick={() => router.back()}
+                onClick={handleCloseTab}
               >
                 Back to Chapter
               </Button>

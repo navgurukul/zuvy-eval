@@ -179,7 +179,9 @@ export default function MentorProfilePage() {
             </p>
 
             {mentorProfile?.bio ? (
-              <p className="text-sm text-gray-700">{mentorProfile.bio}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                {mentorProfile.bio}
+              </p>
             ) : (
               <p className="text-sm text-gray-400 italic">
                 This mentor has not added a bio yet.
@@ -224,7 +226,7 @@ export default function MentorProfilePage() {
             ● {acceptsNewMentees ? "Accepting new sessions" : "Not accepting new sessions"}
           </p>
 
-          <div className="border rounded-xl bg-white p-3 flex items-start gap-2">
+           {/* <div className="border rounded-xl bg-white p-3 flex items-start gap-2">
             <Info size={16} className="text-gray-500 mt-0.5" />
             <p className="text-sm text-gray-600 text-left">
               Please connect your google Calendar before booking the session
@@ -238,7 +240,7 @@ export default function MentorProfilePage() {
             disabled={isGoogleConnecting || !token}
           >
             {isGoogleConnecting ? "Connecting..." : "Connect Google Calendar"}
-          </Button>
+          </Button>  */}
 
           <Link
             href={mentorId ? `/student/mentors/${mentorId}/book${courseId ? `?courseId=${courseId}` : ""}` : (courseId ? `/student/mentors?courseId=${courseId}` : "/student/mentors")}
