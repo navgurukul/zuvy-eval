@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getUser } from '@/store/store'
 import { useEffect } from 'react'
 
-const UnauthorizedUser = ({ userRole, roleFromPath }: { userRole?: string; roleFromPath?: string }) => {
+const UnauthorizedStudent = ({ userRole, roleFromPath }: { userRole?: string; roleFromPath?: string }) => {
     const router = useRouter()
     const { organizationId } = useParams()
     const { user } = getUser()
@@ -31,7 +31,7 @@ const UnauthorizedUser = ({ userRole, roleFromPath }: { userRole?: string; roleF
                         {`The page is meant to be viewed by ${roleFromPath}. You do
                         not have ${roleFromPath} access to access this page`}
                     </p>
-                    <Button onClick={() => router.push(`/${userRole}/organizations/${orgId}/courses`)}>
+                    <Button onClick={() => router.push('/student')}>
                         Return to Dashboard
                     </Button>
                 </div>
@@ -40,4 +40,4 @@ const UnauthorizedUser = ({ userRole, roleFromPath }: { userRole?: string; roleF
     )
 }
 
-export default UnauthorizedUser
+export default UnauthorizedStudent

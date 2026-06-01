@@ -47,28 +47,28 @@ const Header = () => {
     }
 
     const getCurrentCourseId = () => {
-        return courseIdFromPath || courseIdFromQuery
+        const fallbackCourseId = latestCourseData?.bootcampId
+        return courseIdFromPath || courseIdFromQuery || (fallbackCourseId ? String(fallbackCourseId) : null)
     }
 
     const handleSyllabusClick = () => {
         const courseId = getCurrentCourseId()
         if (courseId) {
             router.push(`/student/course/${courseId}/courseSyllabus`)
+            return
         }
+
+        router.push('/student')
     }
 
-    const handleFindMentorClick = () => {
+    const handleMentorshipClick = () => {
         const courseId = getCurrentCourseId()
         if (courseId) {
             router.push(`/student/mentors?courseId=${courseId}`)
+            return
         }
-    }
 
-    const handleMySessionsClick = () => {
-        const courseId = getCurrentCourseId()
-        if (courseId) {
-            router.push(`/student/sessions?courseId=${courseId}`)
-        }
+        router.push('/student/mentors')
     }
 
     const handleLogoutClick = () => {
@@ -101,7 +101,8 @@ const Header = () => {
         pathname.startsWith('/student/mentors') ||
         pathname.startsWith('/student/sessions')
     const showCourseNavLinks =
-        isOnCoursePage || (isMentorOrSessionFlow && Boolean(courseIdFromQuery))
+        isOnCoursePage || isMentorOrSessionFlow
+    const showMentorshipNavLink = shouldShowMentorshipLinks || isMentorOrSessionFlow
 
     // Check active page states
 
@@ -146,25 +147,15 @@ const Header = () => {
                             >
                                 Course Syllabus
                             </Button>
-                            {shouldShowMentorshipLinks && (
-                                <>
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        onClick={handleFindMentorClick}
-                                        className="text-xs font-semibold sm:text-sm text-foreground hover:text-primary"
-                                    >
-                                        Find a Mentor
-                                    </Button>
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        onClick={handleMySessionsClick}
-                                        className="text-xs font-semibold sm:text-sm text-foreground hover:text-primary"
-                                    >
-                                        1:1 Sessions
-                                    </Button>
-                                </>
+                            {showMentorshipNavLink && (
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={handleMentorshipClick}
+                                    className="text-xs font-semibold sm:text-sm text-foreground hover:text-primary"
+                                >
+                                    Mentorship
+                                </Button>
                             )}
                         </div>
                     )}
@@ -297,25 +288,15 @@ const Header = () => {
                         >
                             Course Syllabus
                         </Button>
-                        {shouldShowMentorshipLinks && (
-                            <>
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    onClick={handleFindMentorClick}
-                                    className="text-xs sm:text-sm font-semibold text-foreground hover:underline hover:text-primary"
-                                >
-                                    Find a Mentor
-                                </Button>
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    onClick={handleMySessionsClick}
-                                    className="text-xs sm:text-sm font-semibold text-foreground hover:underline hover:text-primary"
-                                >
-                                    1:1 Sessions
-                                </Button>
-                            </>
+                        {showMentorshipNavLink && (
+                            <Button
+                                variant="link"
+                                size="sm"
+                                onClick={handleMentorshipClick}
+                                className="text-xs sm:text-sm font-semibold text-foreground hover:underline hover:text-primary"
+                            >
+                                Mentorship
+                            </Button>
                         )}
                     </div>
                 )}

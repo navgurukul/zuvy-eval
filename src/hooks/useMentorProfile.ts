@@ -13,6 +13,7 @@ export interface MentorProfile {
     timezone: string
     acceptsNewMentees: boolean
     status: string
+    pastExperiences?: string 
 }
 
 const PROFILE_KEYS = [
@@ -183,6 +184,7 @@ const parseMentorProfileResponse = (
         timezone: parseString(profile.timezone ?? profile.timeZone),
         acceptsNewMentees,
         status: parseString(profile.status),
+        pastExperiences: parseString(profile.pastExperiences ),
     }
 }
 
@@ -193,7 +195,11 @@ const getErrorMessage = (error: unknown): string => {
     return message || 'Failed to fetch mentor profile'
 }
 
-export function useMentorProfile(mentorId?: string, initialFetch = true) {
+export function useMentorProfile(
+    mentorId?: string,
+    initialFetch = true,
+    organizationId?: string | number
+) {
     const [mentorProfile, setMentorProfile] = useState<MentorProfile | null>(
         null
     )
@@ -211,9 +217,8 @@ export function useMentorProfile(mentorId?: string, initialFetch = true) {
             setLoading(true)
             setError(null)
 
-            const response = await api.get<unknown>(
-                `/mentors/${mentorId}`
-            )
+            const url = `/student/mentors/${mentorId}${organizationId ? `?organizationId=${encodeURIComponent(String(organizationId))}` : ''}`
+            const response = await api.get<unknown>(url)
             setMentorProfile(parseMentorProfileResponse(response.data))
         } catch (error) {
             console.error('Error fetching mentor profile:', error)
@@ -222,7 +227,7 @@ export function useMentorProfile(mentorId?: string, initialFetch = true) {
         } finally {
             setLoading(false)
         }
-    }, [mentorId])
+    }, [mentorId, organizationId])
 
     useEffect(() => {
         if (initialFetch) getMentorProfile()

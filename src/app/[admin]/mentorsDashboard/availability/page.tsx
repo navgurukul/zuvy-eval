@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Calendar, Clock, AlertTriangle, Lock, Trash2, Info } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +21,6 @@ import { AvailabilitySkeleton } from "@/app/[admin]/organizations/[organizationI
 import { api } from '@/utils/axios.config'
 
 const durationOptions = [30, 45, 60, 90]
-const minimumDeleteLeadTimeMs = 12 * 60 * 60 * 1000
 const defaultStartTime = "09:00"
 const defaultDurationMinutes = "60"
 
@@ -35,14 +34,6 @@ const getLocalDateString = () => {
 }
 
 const getDefaultSlotDate = () => getLocalDateString()
-
-const startTimeOptions = Array.from({ length: 32 }, (_, index) => {
-  const totalMinutes = 6 * 60 + index * 30
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
-})
 
 const formatLocalDate = (dateTime: string) =>
   new Date(dateTime).toLocaleDateString("en-US", {
@@ -71,17 +62,6 @@ const formatDuration = (durationMinutes: number) => {
   }
 
   return `${durationMinutes} min`
-}
-
-const getTimeLabel = (time: string) => {
-  const [hours, minutes] = time.split(":").map(Number)
-  const date = new Date()
-  date.setHours(hours, minutes, 0, 0)
-
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  })
 }
 
 const getStatusLabel = (status: string) => {
@@ -128,6 +108,7 @@ export default function AvailabilityPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const [isGoogleConnecting, setIsGoogleConnecting] = useState(false)
+  const startTimeInputRef = useRef<HTMLInputElement | null>(null)
 
   const token =
     typeof window !== "undefined"
@@ -321,40 +302,6 @@ export default function AvailabilityPage() {
     }
   }
 
-  const hasBookings = (status: string, currentBookedCount: number) => {
-    const normalizedStatus = status.toLowerCase()
-    return currentBookedCount > 0 || normalizedStatus === "booked"
-  }
-
-  const canDeleteSlot = (
-    slotStartDateTime: string,
-    status: string,
-    currentBookedCount: number
-  ) => {
-    if (hasBookings(status, currentBookedCount)) {
-      return false
-    }
-
-    const slotStartMs = new Date(slotStartDateTime).getTime()
-    return slotStartMs - Date.now() >= minimumDeleteLeadTimeMs
-  }
-
-  const getDeleteBlockReason = (
-    slotStartDateTime: string,
-    status: string,
-    currentBookedCount: number
-  ) => {
-    if (hasBookings(status, currentBookedCount)) {
-      return "Booked slots cannot be removed."
-    }
-
-    if (!canDeleteSlot(slotStartDateTime, status, currentBookedCount)) {
-      return "Slot can be removed only if start time is at least 12 hours away."
-    }
-
-    return null
-  }
-
   const handleRemoveSlot = async (
     slotId: number,
     slotStartDateTime: string,
@@ -364,21 +311,6 @@ export default function AvailabilityPage() {
     setFormError(null)
     setSuccessMessage(null)
     setRemoveError(null)
-
-    const blockReason = getDeleteBlockReason(
-      slotStartDateTime,
-      status,
-      currentBookedCount
-    )
-
-    if (blockReason) {
-      setRemoveError(blockReason)
-      toast.warning({
-        title: "Cannot remove slot",
-        description: blockReason,
-      })
-      return
-    }
 
     const removed = await deleteSlot(slotId)
     if (removed) {
@@ -432,18 +364,20 @@ export default function AvailabilityPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-left">
                 <label className="text-sm font-medium">Start Time *</label>
-                <Select value={startTime} onValueChange={setStartTime}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {startTimeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {getTimeLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div
+                  className="mt-1"
+                  onClick={() => {
+                    startTimeInputRef.current?.focus()
+                    startTimeInputRef.current?.showPicker?.()
+                  }}
+                >
+                  <Input
+                    ref={startTimeInputRef}
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="text-left">
@@ -607,14 +541,7 @@ export default function AvailabilityPage() {
                             slot.currentBookedCount
                           )
                         }
-                        disabled={
-                          isDeleting ||
-                          !canDeleteSlot(
-                            slot.slotStartDateTime,
-                            slot.status,
-                            slot.currentBookedCount
-                          )
-                        }
+                        disabled={isDeleting}
                       >
                         {isDeleting && deletingSlotId === slot.id ? (
                           <span className="text-xs">...</span>
