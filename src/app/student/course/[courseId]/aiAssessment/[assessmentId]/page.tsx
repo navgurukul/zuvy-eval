@@ -49,7 +49,7 @@ const AssessmentQuestionsPage = () => {
   const [resultCurrentQuestionIndex, setResultCurrentQuestionIndex] = useState(0)
   const [isExplanationDialogOpen, setIsExplanationDialogOpen] = useState(false)
   const [selectedQuestionForExplanation, setSelectedQuestionForExplanation] = useState<number | null>(null)
-  const [activeSpeechTarget, setActiveSpeechTarget] = useState<'question' | 'options' | null>(null)
+  const [activeSpeechTarget, setActiveSpeechTarget] = useState<'question' | 'options' | 'explanation' | null>(null)
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([])
 
   const { fetchExplanation, isLoading: isExplanationLoading, error: explanationError } = useGetQuestionExplanation()
@@ -192,7 +192,7 @@ const AssessmentQuestionsPage = () => {
     setActiveSpeechTarget(null)
   }
 
-  const handleSpeak = (text: string, target: 'question' | 'options') => {
+  const handleSpeak = (text: string, target: 'question' | 'options' | 'explanation') => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       toast({
         title: 'Not supported',
@@ -216,6 +216,7 @@ const AssessmentQuestionsPage = () => {
       utterance.voice = voiceToUse
       utterance.lang = voiceToUse.lang
     }
+    utterance.rate = 1.75
     utterance.onend = () => {
       setActiveSpeechTarget((prev) => (prev === target ? null : prev))
     }
@@ -349,6 +350,25 @@ const AssessmentQuestionsPage = () => {
     
     // Fetch explanation async
     await fetchExplanation(assessmentId, questionId)
+  }
+
+  const handleSpeakExplanation = async (questionId: number) => {
+    const existingExplanation = getExplanation(assessmentId, questionId)?.explanation
+    if (!existingExplanation) {
+      await fetchExplanation(assessmentId, questionId)
+    }
+
+    const explanationText = getExplanation(assessmentId, questionId)?.explanation
+    if (!explanationText) {
+      toast({
+        title: 'No explanation',
+        description: 'Explanation is not available for this question yet.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    handleSpeak(explanationText, 'explanation')
   }
 
   return (
@@ -688,6 +708,25 @@ const AssessmentQuestionsPage = () => {
                                       <>
                                         <Sparkles className="w-3.5 h-3.5" />
                                         Explain with AI
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="flex items-center gap-1.5 text-xs h-8 px-3"
+                                    onClick={() => handleSpeakExplanation(resultQuestion.questionId)}
+                                    disabled={isExplanationLoading}
+                                  >
+                                    {activeSpeechTarget === 'explanation' ? (
+                                      <>
+                                        <VolumeX className="w-3.5 h-3.5" />
+                                        Stop
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Volume2 className="w-3.5 h-3.5" />
+                                        Voice
                                       </>
                                     )}
                                   </Button>
