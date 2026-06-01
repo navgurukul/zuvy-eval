@@ -59,10 +59,8 @@ export default function RootSocketConnection() {
 
         if (!accessToken || !user?.id) {
             setIsConnected(false)
-            stopGeneratingQuestions()
 
-            // Retry bootstrap while auth/user state is hydrating.
-            if (accessToken || user?.id) {
+            if (isGeneratingQuestions) {
                 const retryTimer = window.setTimeout(() => {
                     setRetryKey((value) => value + 1)
                 }, 1200)
@@ -112,17 +110,25 @@ export default function RootSocketConnection() {
                 receivedAt: Date.now(),
             })
             generatedQuestionsCountRef.current += data.count
-            incrementCompletedJobs()
-
             const state = getSocketConnectionStore.getState()
             const safeTotalJobs = Math.max(1, state.totalJobs)
-            const committedProgress = Math.floor(
-                (state.completedJobs / safeTotalJobs) * 100
+            const nextCompletedJobs = Math.min(
+                safeTotalJobs,
+                state.completedJobs + 1
             )
-            setGenerationProgress(committedProgress)
+            const committedProgress = Math.floor(
+                (nextCompletedJobs / safeTotalJobs) * 100
+            )
+            const nextProgress = Math.max(
+                state.generationProgress,
+                committedProgress
+            )
+
+            incrementCompletedJobs()
+            setGenerationProgress(nextProgress)
 
             if (
-                state.completedJobs >= safeTotalJobs &&
+                nextCompletedJobs >= safeTotalJobs &&
                 !hasShownCompletionToastRef.current
             ) {
                 hasShownCompletionToastRef.current = true
@@ -154,6 +160,7 @@ export default function RootSocketConnection() {
         }
     }, [
         user?.id,
+        isGeneratingQuestions,
         retryKey,
         setIsConnected,
         setLastQuestionsReadyEvent,
