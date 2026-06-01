@@ -281,6 +281,7 @@ export interface ChapterDetailsResponse {
 export interface UseCodingChallengeProps {
   questionId: string;
   onChapterComplete?: () => void;
+  orgId?: string | null;
 }
 
 // useCodingSubmissions
@@ -491,6 +492,7 @@ export interface LatestUpdatedCourseResponse {
   message: string;
   code: number;
   isSuccess: boolean;
+  mentorshipEnabled: boolean;
   data: LatestUpdatedCourseData;
 }
 
@@ -625,6 +627,7 @@ export interface Bootcamp {
   duration: string;
   language: string;
   bootcampTopic: string;
+  organizationId: number;
   description: string | null;
   batchId: number;
   batchName: string;
@@ -963,6 +966,16 @@ export interface SwitchOrgResponse {
 export interface SwitchOrgResult {
   success: boolean;
   message: string;
+  user?: {
+    rolesList: any[];
+    id: string;
+    email: string;
+    name: string;
+    profilePicture?: string;
+    profile_picture?: string;
+    orgId: number;
+    orgName: string;
+  };
 }
 
 export interface UseSwitchOrgReturn {

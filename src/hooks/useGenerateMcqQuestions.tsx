@@ -59,7 +59,11 @@ interface UseGenerateMcqQuestionsReturn {
 export const useGenerateMcqQuestions = (organizationId: number): UseGenerateMcqQuestionsReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { startGeneratingQuestions, stopGeneratingQuestions } = getSocketConnectionStore();
+  const {
+    startGeneratingQuestions,
+    stopGeneratingQuestions,
+    updateGenerationJobMeta,
+  } = getSocketConnectionStore();
 
   /**
    * Note: WebSocket connection and global generation loader are handled
@@ -71,6 +75,18 @@ export const useGenerateMcqQuestions = (organizationId: number): UseGenerateMcqQ
     setError(null);
 
     try {
+      const optimisticTotalJobs = Math.max(
+        1,
+        payload.topicConfigurations?.length ||
+          payload.topicNames?.length ||
+          Object.keys(payload.topics || {}).length ||
+          1
+      );
+
+      startGeneratingQuestions({
+        totalJobs: optimisticTotalJobs,
+      });
+
       const response = await api.post<GenerateMcqResponse>(
         `${process.env.NEXT_PUBLIC_EVAL_URL}/questions/generate`,
         payload,
@@ -82,9 +98,9 @@ export const useGenerateMcqQuestions = (organizationId: number): UseGenerateMcqQ
       );
       const data = response.data;
 
-      startGeneratingQuestions({
+      updateGenerationJobMeta({
         message: data?.message || '',
-        totalJobs: data?.totalJobs || 1,
+        totalJobs: data?.totalJobs || optimisticTotalJobs,
         jobIds: Array.isArray(data?.jobIds) ? data.jobIds : [],
       });
 

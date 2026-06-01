@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback } from "react";
-import Link from "next/link";
-import { Star } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Mentor, useMentors } from "@/hooks/useMentors";
 import { api } from "@/utils/axios.config";
 import { SearchBox } from "@/utils/searchBox";
-import { ArrowLeft } from "lucide-react"
 import { useStudentMentorMetrics } from "@/hooks/useStudentMentorMetrics";
-import { AlertCircle, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toggle } from "@/components/ui/toggle";
+import MentorshipTabs from "../_components/MentorshipTabs";
+import MentorBookingDrawer from "@/app/student/_components/MentorBookingDrawer";
+
 
 type MentorsSearchResponse = Mentor[] | { data?: Mentor[] };
 import { DataTablePagination } from '@/app/_components/datatable/data-table-pagination';
@@ -38,10 +40,7 @@ const parseMentors = (response: MentorsSearchResponse): Mentor[] => {
 };
 
 export default function MentorsPage() {
-    // const searchParams = useSearchParams();
-    // const searchQuery = searchParams.get("search")?.trim() || "";
-    // const { mentors, loading, error } = useMentors(searchQuery);
-
+    const router = useRouter()
     const searchParams = useSearchParams()
 
     const page = parseInt(searchParams.get("page") || "1")
@@ -49,29 +48,63 @@ export default function MentorsPage() {
     const offset = (page - 1) * limit
     const searchQuery = searchParams.get("search")?.trim() || ""
     const courseId = searchParams.get("courseId") || ""
+    const [showAllMentors, setShowAllMentors] = useState(false)
+    const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null)
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
     const { mentors, total, loading, error, refetchMentors } = useMentors(
         searchQuery,
-        true,
+        showAllMentors,
         limit,
         offset
     )
 
+    const {
+        mentors: availableMentorPool,
+        loading: availableMentorPoolLoading,
+        error: availableMentorPoolError,
+    } = useMentors(searchQuery, !showAllMentors, 1000, 0)
+
     const { metrics, loading: metricsLoading } = useStudentMentorMetrics()
 
-    const totalPages = Math.max(1, Math.ceil(total / limit))
+    const availableMentors = useMemo(() => {
+        return availableMentorPool.filter((mentor) => {
+            return mentor.availabilityStatus?.trim().toLowerCase() === "available"
+        })
+    }, [availableMentorPool])
+
+    const totalForPagination = showAllMentors ? total : availableMentors.length
+    const totalPages = Math.max(1, Math.ceil(totalForPagination / limit))
+    const visibleMentors = useMemo(() => {
+        if (showAllMentors) return mentors
+
+        return availableMentors.slice(offset, offset + limit)
+    }, [showAllMentors, mentors, availableMentors, offset, limit])
+
+    const pageLoading = showAllMentors ? loading : availableMentorPoolLoading
+    const pageError = showAllMentors ? error : availableMentorPoolError
+
+    const handleShowAllMentorsToggle = useCallback((pressed: boolean) => {
+        setShowAllMentors(pressed)
+
+        const params = new URLSearchParams(searchParams.toString())
+        params.set("page", "1")
+        router.replace(`?${params.toString()}`)
+    }, [router, searchParams])
 
     const fetchMentorsData = useCallback((nextOffset: number) => {
+        if (!showAllMentors) return
+
         refetchMentors({
             searchTerm: searchQuery,
             limit,
             offset: nextOffset,
         })
-    }, [limit, refetchMentors, searchQuery])
+    }, [showAllMentors, refetchMentors, searchQuery, limit])
     const fetchSuggestionsApi = useCallback(async (query: string) => {
         try {
             const response = await api.get<MentorsSearchResponse>(
-                `/mentors?search=${encodeURIComponent(query)}`
+                `/student/mentors?search=${encodeURIComponent(query)}`
             );
 
             const mentorList = parseMentors(response.data);
@@ -94,17 +127,20 @@ export default function MentorsPage() {
         return [];
     }, []);
 
+    const handleMentorClick = (mentor: Mentor) => {
+        setSelectedMentor(mentor)
+        setIsDrawerOpen(true)
+    }
+
     return (
         // <div className="w-full max-w-full min-w-0 overflow-x-hidden px-6 py-8 font-manrope">
-        <div className="w-full max-w-full min-w-0 px-6 py-8 font-manrope">
+        <div className="mx-auto w-full max-w-[90rem] min-w-0 px-6 py-8 font-manrope space-y-6">
+            <div>
+                <h1 className="text-2xl font-semibold text-left text-gray-900">Mentorship</h1>
+                {/* <p className="mt-1 text-sm text-gray-500 text-left">Browse mentors or review your booked sessions.</p> */}
+            </div>
 
-            <Link
-                 href={courseId ? `/student/course/${courseId}` : "/student"}
-                className="flex items-center mb-6 gap-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-                <ArrowLeft size={16} />
-                Back to {courseId ? "course" : "dashboard"}
-            </Link>
+            <MentorshipTabs courseId={courseId} />
 
             {/* Booking Metrics Banner */}
             {!metricsLoading && metrics && (
@@ -138,13 +174,10 @@ export default function MentorsPage() {
             )}
 
             {/* Filter buttons */}
-            <div className="mb-6 flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="mb-6 flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                <div className="flex min-w-0 flex-col gap-3">
-                    <div className="flex gap-2 flex-wrap">
-                           <h1 className="text-xl font-semibold text-left">All Mentors</h1>
-                    </div>
-
+                <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+                    
                     <SearchBox
                         placeholder="Search mentors..."
                         fetchSuggestionsApi={fetchSuggestionsApi}
@@ -158,32 +191,84 @@ export default function MentorsPage() {
                         )}
                         inputWidth="w-full sm:w-[400px]"
                     />
+                    <Toggle
+                        pressed={showAllMentors}
+                        onPressedChange={handleShowAllMentorsToggle}
+                        className="
+                            h-10
+                            rounded-xl
+                            border
+                            px-4
+                            shadow-none
+                            flex
+                            items-center
+                            gap-2
+                            bg-white
+                            mt-2
+                            border-gray-300
+                            text-gray-700
+                            hover:bg-white
+                            hover:text-gray-700
+                            hover:border-gray-300
+                            data-[state=on]:bg-[#eef7ee]
+                            data-[state=on]:text-[#2f6b3d]
+                            data-[state=on]:border-[#cfe3cf]
+                            data-[state=on]:hover:bg-[#eef7ee]
+                            data-[state=on]:hover:text-[#2f6b3d]
+                        "
+                        >
+                        <div
+                            className={`
+                            relative flex h-5 w-9 items-center rounded-full transition-all
+                            ${showAllMentors ? "bg-[#2f6b3d]" : "bg-gray-300"}
+                            `}
+                        >
+                            <div
+                            className={`
+                                h-4 w-4 rounded-full bg-white shadow-sm transition-all
+                                ${showAllMentors ? "translate-x-4" : "translate-x-0.5"}
+                            `}
+                            />
+                        </div>
+
+                        <span className="text-sm font-medium whitespace-nowrap">
+                            Show all mentors
+                        </span>
+                    </Toggle>
                 </div>
 
-                <p className="text-xs text-gray-400">
-                    {mentors.length} results
+                <p className="text-xs text-gray-500">
+                    {showAllMentors
+                        ? `${totalForPagination} mentors shown`
+                        : `${totalForPagination} available`}
                 </p>
 
             </div>
 
-            {loading ? (
-                <p className="text-sm text-gray-500">Loading mentors...</p>
-            ) : error ? (
-                <p className="text-sm text-red-500">{error}</p>
-            ) : mentors.length === 0 ? (
+            {pageLoading ? (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <Skeleton className="h-64 rounded-3xl" />
+                        <Skeleton className="h-64 rounded-3xl" />
+                        <Skeleton className="h-64 rounded-3xl" />
+                    </div>
+                    <div className="flex justify-center">
+                        <Skeleton className="h-10 w-56 rounded-lg" />
+                    </div>
+                </div>
+            ) : pageError ? (
+                <p className="text-sm text-red-500">{pageError}</p>
+            ) : visibleMentors.length === 0 ? (
                 <p className="text-sm text-gray-500">No mentors available right now.</p>
             ) : (
-                <div className="grid w-full grid-cols-1 gap-5 bg-white md:grid-cols-2 lg:grid-cols-3">
-                    {mentors.map((mentor) => {
+                <div className="grid w-full grid-cols-1 gap-5  md:grid-cols-2 lg:grid-cols-3">
+                    {visibleMentors.map((mentor) => {
                         const expertise = Array.isArray(mentor.expertise)
                             ? mentor.expertise
                             : [];
                         const availabilityStatus = mentor.availabilityStatus?.trim() || "Unavailable";
-                        const normalizedAvailabilityStatus = availabilityStatus.toLowerCase();
-                        const availabilityStatusClassName =
-                            normalizedAvailabilityStatus === "available"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-yellow-100 text-yellow-700";
+                        const isAvailable = availabilityStatus.toLowerCase() === "available";
+                        const showUnavailableState = showAllMentors && !isAvailable;
 
                         const initials = mentor.name
                             .split(" ")
@@ -191,34 +276,46 @@ export default function MentorsPage() {
                             .join("")
                             .toUpperCase();
 
-                        return (
-                            <Link
-                                key={mentor.userId}
-                                href={courseId ? `/student/mentors/${mentor.userId}?courseId=${courseId}` : `/student/mentors/${mentor.userId}`}
-                                className="group relative block overflow-hidden rounded-3xl border border-gray-200 p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-                            >
+                        const mentorCardBody = (
+                            <>
                                 {/* Top */}
-                                <div className="flex min-w-0 justify-between gap-2">
+                                <div className="flex min-w-0 justify-between gap-3">
                                     <div className="flex min-w-0 gap-3">
                                         <div className="h-10 w-10 rounded-full bg-green-800 flex items-center justify-center text-white text-sm font-bold">
                                             {initials}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 space-y-1">
                                             <p className="truncate text-left text-base font-semibold">
                                                 {mentor.name}
                                             </p>
+                                            <p className="truncate text-left text-xs text-gray-500">
+                                                {mentor.email}
+                                            </p>
+                                            <div className="flex min-w-0 flex-wrap gap-2 pt-1">
+                                                <span className="inline-flex max-w-full items-center rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                                                    {mentor.orgName || 'Unknown org'}
+                                                </span>
+                                            </div>
                                             <p className="truncate text-left text-sm text-gray-500">
                                                 {mentor.title || mentor.role}
                                             </p>
+                                            {/* <p className="truncate text-left text-xs text-gray-500">
+                                                {mentor.email}
+                                            </p>
+                                            <div className="flex min-w-0 flex-wrap gap-2 pt-1">
+                                                <span className="inline-flex max-w-full items-center rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                                                    {mentor.orgName || 'Unknown org'}
+                                                </span>
+                                            </div> */}
                                         </div>
                                     </div>
-                                    <span
-                                        className={`inline-flex shrink-0 items-center rounded-full px-5 h-7 text-xs font-medium ${availabilityStatusClassName}`}
-                                    >
-                                        {mentor.availabilityStatus}
-                                    </span>
-                                    
+                                    {showAllMentors && !isAvailable && (
+                                        <span className="inline-flex shrink-0 items-center rounded-full px-5 h-7 text-xs font-medium bg-gray-100 text-gray-500">
+                                            Unavailable
+                                        </span>
+                                    )}
                                 </div>
+
                                 {/* Skills */}
                                 <div className="mt-4 min-h-[30px]">
 
@@ -245,34 +342,53 @@ export default function MentorsPage() {
 
                                 {/* Divider */}
                                 <div className="border-t mt-4 pt-3 flex justify-between">
-
-                                    <div className="flex items-center gap-1 text-sm">
-                                        <Star size={14} className="text-yellow-500 fill-yellow-500" />
-                                        {"0.0"}
-                                    </div>
                                     <p className="text-sm text-gray-400">
                                        {mentor.availableSlots}
-                                       <span className="ml-2">Available Slots</span>
+                                       <span className="ml-2 text-sm">Available Slots</span>
                                     </p>
 
                                 </div>
-                                {/* View Profile Button */}
-                                <div className="absolute bottom-0 left-0 w-full opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                    <div className="block text-center bg-green-800 text-white py-2 rounded-b-3xl text-xs font-semibold">
-                                        View Profile →
-                                    </div>
+
+                            </>
+                        );
+
+                        if (showUnavailableState) {
+                            return (
+                                <div
+                                    key={`${mentor.userId}-${mentor.organizationId}`}
+                                    className="relative block overflow-hidden rounded-3xl border border-gray-200 p-5 shadow-sm opacity-50 cursor-not-allowed pointer-events-none"
+                                >
+                                    {mentorCardBody}
                                 </div>
-                            </Link>
+                            );
+                        }
+
+                        return (
+                            <button
+                                key={`${mentor.userId}-${mentor.organizationId}`}
+                                type="button"
+                                onClick={() => handleMentorClick(mentor)}
+                                className="group relative block w-full overflow-hidden rounded-3xl border border-gray-200 p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                            >
+                                {mentorCardBody}
+                            </button>
                         );
                     })}
 
                 </div>
             )}
             <DataTablePagination
-                totalStudents={total}
+                totalStudents={totalForPagination}
                 lastPage={totalPages}
                 pages={totalPages}
                 fetchStudentData={fetchMentorsData}
+            />
+
+            <MentorBookingDrawer
+                mentor={selectedMentor}
+                open={isDrawerOpen}
+                onOpenChange={setIsDrawerOpen}
+                courseId={courseId}
             />
         </div>
     );

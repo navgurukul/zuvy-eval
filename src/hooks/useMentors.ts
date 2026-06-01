@@ -9,10 +9,13 @@ export interface Mentor {
     email: string
     role: string | null
     bio: string | null
+    pastExperiences?: string | null
     expertise: string[] | null
     title: string | null
     availabilityStatus:string | null
     availableSlots:number
+    organizationId?: number
+    orgName?: string | null
 }
 
 interface MentorsPaginatedResponse {
@@ -105,7 +108,7 @@ export function useMentors(search?: string, initialFetch = true, limit = 10, off
                 queryParams.append('offset', String(params.offset))
             }
 
-            const url = `/mentors${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+            const url = `/student/mentors${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
             const response = await api.get<MentorsApiResponse>(url)
             const parsedResponse = parseMentorsResponse(response.data)
 

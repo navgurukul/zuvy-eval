@@ -991,54 +991,117 @@ type SocketConnectionStore = {
     setIsConnected: (value: boolean) => void
     setLastQuestionsReadyEvent: (value: QuestionsReadyEvent | null) => void
     startGeneratingQuestions: (payload?: Partial<GenerationJobMeta>) => void
+    updateGenerationJobMeta: (payload?: Partial<GenerationJobMeta>) => void
     stopGeneratingQuestions: () => void
     setGenerationProgress: (value: number) => void
     incrementCompletedJobs: () => void
 }
 
-export const getSocketConnectionStore = create<SocketConnectionStore>((set) => ({
-    isConnected: false,
-    lastQuestionsReadyEvent: null,
-    isGeneratingQuestions: false,
-    generationProgress: 0,
-    totalJobs: 1,
-    completedJobs: 0,
-    generationJobMeta: null,
-    setIsConnected: (value) => set({ isConnected: value }),
-    setLastQuestionsReadyEvent: (value) => set({ lastQuestionsReadyEvent: value }),
-    startGeneratingQuestions: (payload) =>
-        set(() => {
-            const totalJobs = Math.max(1, Number(payload?.totalJobs || 1))
-            const jobIds = Array.isArray(payload?.jobIds) ? payload.jobIds : []
-            const message = payload?.message || ''
-
-            return {
-                isGeneratingQuestions: true,
-                generationProgress: 1,
-                totalJobs,
-                completedJobs: 0,
-                generationJobMeta: {
-                    message,
-                    totalJobs,
-                    jobIds,
-                },
-            }
-        }),
-    stopGeneratingQuestions: () =>
-        set({
+export const getSocketConnectionStore = create<SocketConnectionStore>()(
+    persist(
+        (set) => ({
+            isConnected: false,
+            lastQuestionsReadyEvent: null,
             isGeneratingQuestions: false,
             generationProgress: 0,
             totalJobs: 1,
             completedJobs: 0,
             generationJobMeta: null,
+            setIsConnected: (value) => set({ isConnected: value }),
+            setLastQuestionsReadyEvent: (value) =>
+                set({ lastQuestionsReadyEvent: value }),
+            startGeneratingQuestions: (payload) =>
+                set(() => {
+                    const totalJobs = Math.max(
+                        1,
+                        Number(payload?.totalJobs || 1)
+                    )
+                    const jobIds = Array.isArray(payload?.jobIds)
+                        ? payload.jobIds
+                        : []
+                    const message = payload?.message || ''
+
+                    return {
+                        isGeneratingQuestions: true,
+                        generationProgress: 1,
+                        totalJobs,
+                        completedJobs: 0,
+                        generationJobMeta: {
+                            message,
+                            totalJobs,
+                            jobIds,
+                        },
+                    }
+                }),
+            updateGenerationJobMeta: (payload) =>
+                set((state) => {
+                    if (!payload) {
+                        return state
+                    }
+
+                    const nextTotalJobs = Math.max(
+                        1,
+                        Number(payload.totalJobs ?? state.totalJobs ?? 1)
+                    )
+                    const nextJobIds = Array.isArray(payload.jobIds)
+                        ? payload.jobIds
+                        : state.generationJobMeta?.jobIds || []
+                    const nextMessage =
+                        payload.message ?? state.generationJobMeta?.message ?? ''
+                    const nextCompletedJobs = Math.min(
+                        nextTotalJobs,
+                        state.completedJobs
+                    )
+                    const committedProgress = Math.floor(
+                        (nextCompletedJobs / nextTotalJobs) * 100
+                    )
+                    const nextProgress = Math.max(
+                        state.generationProgress,
+                        committedProgress
+                    )
+
+                    return {
+                        totalJobs: nextTotalJobs,
+                        completedJobs: nextCompletedJobs,
+                        generationProgress: nextProgress,
+                        generationJobMeta: {
+                            message: nextMessage,
+                            totalJobs: nextTotalJobs,
+                            jobIds: nextJobIds,
+                        },
+                    }
+                }),
+            stopGeneratingQuestions: () =>
+                set({
+                    isGeneratingQuestions: false,
+                    generationProgress: 0,
+                    totalJobs: 1,
+                    completedJobs: 0,
+                    generationJobMeta: null,
+                }),
+            setGenerationProgress: (value) =>
+                set({ generationProgress: Math.max(0, Math.min(100, value)) }),
+            incrementCompletedJobs: () =>
+                set((state) => ({
+                    completedJobs: Math.min(
+                        state.totalJobs,
+                        state.completedJobs + 1
+                    ),
+                })),
         }),
-    setGenerationProgress: (value) =>
-        set({ generationProgress: Math.max(0, Math.min(100, value)) }),
-    incrementCompletedJobs: () =>
-        set((state) => ({
-            completedJobs: Math.min(state.totalJobs, state.completedJobs + 1),
-        })),
-}))
+        {
+            name: 'socket-generation-store',
+            partialize: (state) => ({
+                isGeneratingQuestions: state.isGeneratingQuestions,
+                generationProgress: state.generationProgress,
+                totalJobs: state.totalJobs,
+                completedJobs: state.completedJobs,
+                generationJobMeta: state.generationJobMeta,
+                lastQuestionsReadyEvent: state.lastQuestionsReadyEvent,
+            }),
+        }
+    )
+)
 
 // ------------------------- User ------------------------
 interface User {
