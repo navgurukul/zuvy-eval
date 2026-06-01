@@ -10,7 +10,7 @@ import { useGetStudentAiAssessmentResult } from '@/hooks/useGetStudentAiAssessme
 import { useGetQuestionExplanation } from '@/hooks/useGetQuestionExplanation'
 import { useExplanationStore } from '@/store/useExplanationStore'
 import { ExplanationDialog } from '@/components/ExplanationDialog'
-import { Flag, Bookmark, ArrowLeft, ArrowRight, Loader2, CheckCircle, XCircle, Sparkles } from 'lucide-react'
+import { Flag, Bookmark, ArrowLeft, ArrowRight, Loader2, CheckCircle, XCircle, Sparkles, Volume2, VolumeX } from 'lucide-react'
 import { api } from '@/utils/axios.config'
 import { toast } from '@/components/ui/use-toast'
 
@@ -49,6 +49,8 @@ const AssessmentQuestionsPage = () => {
   const [resultCurrentQuestionIndex, setResultCurrentQuestionIndex] = useState(0)
   const [isExplanationDialogOpen, setIsExplanationDialogOpen] = useState(false)
   const [selectedQuestionForExplanation, setSelectedQuestionForExplanation] = useState<number | null>(null)
+  const [activeSpeechTarget, setActiveSpeechTarget] = useState<'question' | 'options' | null>(null)
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([])
 
   const { fetchExplanation, isLoading: isExplanationLoading, error: explanationError } = useGetQuestionExplanation()
   const { getExplanation } = useExplanationStore()
@@ -68,6 +70,33 @@ const AssessmentQuestionsPage = () => {
     }
   }, [assessmentMeta?.studentStatus, assessmentId, fetchResult, showResults, isFetchingResult])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    const updateVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices())
+    }
+
+    updateVoices()
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoices)
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', updateVoices)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    setActiveSpeechTarget(null)
+  }, [currentQuestionIndex, showResults])
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
   const totalQuestions = questions.length
   const attemptedQuestionsCount = Object.keys(selectedAnswers).length
 
@@ -75,6 +104,61 @@ const AssessmentQuestionsPage = () => {
     if (totalQuestions === 0) return null
     return questions[currentQuestionIndex] ?? null
   }, [questions, currentQuestionIndex, totalQuestions])
+
+  const currentQuestionSpeechText = useMemo(() => {
+    if (!currentQuestion) return ''
+    return `Question ${currentQuestionIndex + 1}. ${currentQuestion.question}`
+  }, [currentQuestion, currentQuestionIndex])
+
+  const currentOptionsSpeechText = useMemo(() => {
+    if (!currentQuestion) return ''
+    const optionsText = Object.entries(currentQuestion.options)
+      .sort(([left], [right]) => Number(left) - Number(right))
+      .map(([optionKey, optionLabel]) => `Option ${optionKey}. ${optionLabel}`)
+
+    if (optionsText.length === 0) {
+      return 'There are no options for this question.'
+    }
+
+    return `Options are: ${optionsText.join('. ')}`
+  }, [currentQuestion])
+
+  const selectPreferredVoice = (voices: SpeechSynthesisVoice[]) => {
+    if (voices.length === 0) return null
+    const normalize = (value: string) => value.toLowerCase()
+    const isFemaleVoice = (voice: SpeechSynthesisVoice) => {
+      const name = normalize(voice.name)
+      return (
+        name.includes('female') ||
+        name.includes('woman') ||
+        name.includes('zira') ||
+        name.includes('sara') ||
+        name.includes('ananya') ||
+        name.includes('pooja') ||
+        name.includes('neha') ||
+        name.includes('rashmi') ||
+        name.includes('lekha') ||
+        name.includes('heera') ||
+        name.includes('kavya')
+      )
+    }
+
+    const enInVoices = voices.filter((voice) => normalize(voice.lang || '').startsWith('en-in'))
+    const googleEnInVoices = enInVoices.filter((voice) => normalize(voice.name).includes('google'))
+
+    return (
+      googleEnInVoices.find(isFemaleVoice) ||
+      googleEnInVoices[0] ||
+      enInVoices.find(isFemaleVoice) ||
+      enInVoices[0] ||
+      voices.find((voice) => normalize(voice.name).includes('india')) ||
+      voices.find((voice) => normalize(voice.name).includes('google')) ||
+      voices[0] ||
+      null
+    )
+  }
+
+  const preferredVoice = useMemo(() => selectPreferredVoice(availableVoices), [availableVoices])
 
   const goToQuestion = (index: number) => {
     if (index < 0 || index >= totalQuestions) return
@@ -100,6 +184,47 @@ const AssessmentQuestionsPage = () => {
     }
 
     router.back()
+  }
+
+  const stopSpeech = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    setActiveSpeechTarget(null)
+  }
+
+  const handleSpeak = (text: string, target: 'question' | 'options') => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      toast({
+        title: 'Not supported',
+        description: 'Voice playback is not supported in this browser.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!text) return
+
+    if (activeSpeechTarget === target) {
+      stopSpeech()
+      return
+    }
+
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    const voiceToUse = preferredVoice || selectPreferredVoice(window.speechSynthesis.getVoices())
+    if (voiceToUse) {
+      utterance.voice = voiceToUse
+      utterance.lang = voiceToUse.lang
+    }
+    utterance.onend = () => {
+      setActiveSpeechTarget((prev) => (prev === target ? null : prev))
+    }
+    utterance.onerror = () => {
+      setActiveSpeechTarget((prev) => (prev === target ? null : prev))
+    }
+
+    setActiveSpeechTarget(target)
+    window.speechSynthesis.speak(utterance)
   }
 
   const handleSelectAnswer = (questionId: number, optionKey: string) => {
@@ -610,6 +735,22 @@ const AssessmentQuestionsPage = () => {
                       </div>
                       <div className="flex gap-3">
                         <button
+                          onClick={() => handleSpeak(currentQuestionSpeechText, 'question')}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
+                            activeSpeechTarget === 'question'
+                              ? 'bg-primary-light text-primary'
+                              : 'text-text-secondary hover:text-primary hover:bg-primary-light'
+                          }`}
+                          title={activeSpeechTarget === 'question' ? 'Stop voice' : 'Voice question'}
+                        >
+                          {activeSpeechTarget === 'question' ? (
+                            <VolumeX className="w-4 h-4" />
+                          ) : (
+                            <Volume2 className="w-4 h-4" />
+                          )}
+                          {activeSpeechTarget === 'question' ? 'Stop' : 'Voice'}
+                        </button>
+                        <button
                           onClick={() => toggleFlag(currentQuestion.questionId)}
                           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
                             flaggedQuestions.has(currentQuestion.questionId)
@@ -640,43 +781,65 @@ const AssessmentQuestionsPage = () => {
                   </div>
 
                   {/* Options */}
-                  <div className="grid gap-3">
-                    {Object.entries(currentQuestion.options)
-                      .sort(([left], [right]) => Number(left) - Number(right))
-                      .map(([optionKey, optionLabel]) => {
-                        const isSelected = selectedAnswers[currentQuestion.questionId] === optionKey
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">Answer Options</p>
+                      <button
+                        onClick={() => handleSpeak(currentOptionsSpeechText, 'options')}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
+                          activeSpeechTarget === 'options'
+                            ? 'bg-primary-light text-primary'
+                            : 'text-text-secondary hover:text-primary hover:bg-primary-light'
+                        }`}
+                        title={activeSpeechTarget === 'options' ? 'Stop voice' : 'Voice options'}
+                      >
+                        {activeSpeechTarget === 'options' ? (
+                          <VolumeX className="w-4 h-4" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                        {activeSpeechTarget === 'options' ? 'Stop' : 'Voice Options'}
+                      </button>
+                    </div>
 
-                        return (
-                          <button
-                            key={`${currentQuestion.questionId}-${optionKey}`}
-                            type="button"
-                            onClick={() => handleSelectAnswer(currentQuestion.questionId, optionKey)}
-                            className={`group relative flex items-center p-4 rounded-lg text-left border transition-all duration-200 ${
-                              isSelected
-                                ? 'bg-success-light border-success shadow-soft'
-                                : 'bg-card border-border hover:border-primary/30 hover:shadow-soft'
-                            }`}
-                          >
-                            <div
-                              className={`min-w-fit w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm mr-4 transition-colors flex-shrink-0 ${
+                    <div className="grid gap-3">
+                      {Object.entries(currentQuestion.options)
+                        .sort(([left], [right]) => Number(left) - Number(right))
+                        .map(([optionKey, optionLabel]) => {
+                          const isSelected = selectedAnswers[currentQuestion.questionId] === optionKey
+
+                          return (
+                            <button
+                              key={`${currentQuestion.questionId}-${optionKey}`}
+                              type="button"
+                              onClick={() => handleSelectAnswer(currentQuestion.questionId, optionKey)}
+                              className={`group relative flex items-center p-4 rounded-lg text-left border transition-all duration-200 ${
                                 isSelected
-                                  ? 'bg-success text-white'
-                                  : 'bg-muted text-primary group-hover:bg-primary group-hover:text-white'
+                                  ? 'bg-success-light border-success shadow-soft'
+                                  : 'bg-card border-border hover:border-primary/30 hover:shadow-soft'
                               }`}
                             >
-                              {optionKey}
-                            </div>
-                            <span className={`text-sm font-medium ${isSelected ? 'text-foreground font-semibold' : 'text-foreground'}`}>
-                              {optionLabel}
-                            </span>
-                            {isSelected && (
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                <span className="text-success text-lg">✓</span>
+                              <div
+                                className={`min-w-fit w-9 h-9 rounded-md flex items-center justify-center font-bold text-sm mr-4 transition-colors flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-success text-white'
+                                    : 'bg-muted text-primary group-hover:bg-primary group-hover:text-white'
+                                }`}
+                              >
+                                {optionKey}
                               </div>
-                            )}
-                          </button>
-                        )
-                      })}
+                              <span className={`text-sm font-medium ${isSelected ? 'text-foreground font-semibold' : 'text-foreground'}`}>
+                                {optionLabel}
+                              </span>
+                              {isSelected && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                  <span className="text-success text-lg">✓</span>
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                    </div>
                   </div>
                 </div>
               )}
