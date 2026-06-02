@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useGetStudentAiAssessments } from '@/hooks/useGetStudentAiAssessments'
 import { AdaptiveAssessementStudentViewProps } from './componentChapterType'
+import Link from 'next/link'
 
 const formatDateTime = (value: string | null) => {
   if (!value) return 'Not scheduled'
@@ -153,13 +154,20 @@ const AdaptiveAssessementStudentView = ({ chapterDetails, details, onChapterComp
                   </div>
 
                   <div className="flex items-center justify-end md:justify-start">
+                    {assessment.studentStatus === 1 && <Link href={`/student/course/${bootcampId}/aiAssessment/${assessment.id}?domainId=${domainId}&chapterId=${chapterId}`}>  <Button
+                        type="button"
+                        className="h-9 rounded-lg px-4 mx-1  text-xs disabled:"
+                        
+                      >
+                         View Results
+                      </Button></Link>}
                     {assessment.studentStatus === 1 ? (
                       <Button
                         type="button"
                         className="h-9 rounded-lg px-4 text-xs disabled:"
                         disabled
                       >
-                         Assessment Submitted
+                         Assessment Submitted 
                       </Button>
                     ) : (
                       <Button
