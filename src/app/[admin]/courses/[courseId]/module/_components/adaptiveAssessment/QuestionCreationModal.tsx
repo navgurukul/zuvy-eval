@@ -194,9 +194,7 @@ export function QuestionCreationModal({
   };
 
   const onSubmit = async (values: FormValues) => {
-    console.log('Form Submitted! Values:', values);
-    console.log('Difficulty Distribution:', difficultyDistribution);
-    console.log('Question Counts:', questionCounts);
+ 
     
     setIsGenerating(true);
     
@@ -436,7 +434,7 @@ export function QuestionCreationModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Number of Questions <span className="text-destructive">*</span>
+                    Number of Questions<span className="text-destructive">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
