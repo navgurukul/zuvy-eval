@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AssessmentCriteria, PreviousAssessment, SelectedAssessmentWithWeight, GeneratedQuestionSet, WizardStep, MCQQuestion } from './types';
 import { mockPreviousAssessments, mockGeneratedSets, mockReplacementQuestions } from './mockData';
 import { ConfigurationForm } from '../../../../_components/adaptiveAssessment/ConfigurationForm';
@@ -130,6 +130,7 @@ const AdaptiveAssessment = (props: any) => {
     generationPhase === 'mapping-questions' ? 1 : 0;
 
   const [state, setState] = useState<WizardState>(initialState);
+  const hasManualQuestionCountRef = useRef(false);
 
   const routeBootcampId = toPositiveInt((params as any)?.courseId);
   const routeChapterId = toPositiveInt((params as any)?.chapterId ?? (params as any)?.chapterID);
@@ -185,21 +186,30 @@ const AdaptiveAssessment = (props: any) => {
 
         const convertedSets = convertQuestionSetsToGeneratedSets(questionSetsResponse);
 
-        setState((prev) => ({
-          ...prev,
-          aiAssessmentId: latestAssessment.id,
-          assessmentName: latestAssessment.title || prev.assessmentName,
-          assessmentDescription: latestAssessment.description || prev.assessmentDescription,
-          assessmentAudience: latestAssessment.audience || prev.assessmentAudience,
-          assessmentQuestionCount: String(
-            latestAssessment.totalQuestionsWithBuffer ?? latestAssessment.totalNumberOfQuestions ?? ''
-          ),
-          generatedSets: convertedSets,
-          currentStep: 'generatedSets',
-          revealedSteps: prev.revealedSteps.includes('generatedSets')
-            ? prev.revealedSteps
-            : [...prev.revealedSteps, 'generatedSets'],
-        }));
+        setState((prev) => {
+          const shouldKeepQuestionCount =
+            hasManualQuestionCountRef.current && prev.assessmentQuestionCount.trim().length > 0;
+
+          return {
+            ...prev,
+            aiAssessmentId: latestAssessment.id,
+            assessmentName: latestAssessment.title || prev.assessmentName,
+            assessmentDescription: latestAssessment.description || prev.assessmentDescription,
+            assessmentAudience: latestAssessment.audience || prev.assessmentAudience,
+            assessmentQuestionCount: shouldKeepQuestionCount
+              ? prev.assessmentQuestionCount
+              : String(
+                  latestAssessment.totalNumberOfQuestions ??
+                    prev.assessmentQuestionCount ??
+                    ''
+                ),
+            generatedSets: convertedSets,
+            currentStep: 'generatedSets',
+            revealedSteps: prev.revealedSteps.includes('generatedSets')
+              ? prev.revealedSteps
+              : [...prev.revealedSteps, 'generatedSets'],
+          };
+        });
       } catch {
         if (!isCancelled) {
           setHasChapterAssessments(null);
@@ -392,6 +402,7 @@ const AdaptiveAssessment = (props: any) => {
   };
 
   const handleReset = () => {
+    hasManualQuestionCountRef.current = false;
     setState(initialState);
   };
 
@@ -493,7 +504,10 @@ const AdaptiveAssessment = (props: any) => {
                 onNameChange={(name) => updateState({ assessmentName: name })}
                 onDescriptionChange={(description) => updateState({ assessmentDescription: description })}
                 onAudienceChange={(audience) => updateState({ assessmentAudience: audience })}
-                onQuestionCountChange={(count) => updateState({ assessmentQuestionCount: count })}
+                onQuestionCountChange={(count) => {
+                  hasManualQuestionCountRef.current = true;
+                  updateState({ assessmentQuestionCount: count });
+                }}
               />
             </section>
           )}
