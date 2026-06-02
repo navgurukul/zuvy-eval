@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,6 +17,8 @@ import { useCreateTopic } from '@/hooks/useCreateTopic'
 import { useDeleteTopic } from '@/hooks/useDeleteTopic'
 import { useTopics } from '@/hooks/useTopics'
 import { useUpdateTopic } from '@/hooks/useUpdateTopic'
+import useEditChapter from '@/hooks/useEditChapter'
+import { getChapterDataState, getChapterUpdateStatus } from '@/store/store'
 import AdaptiveAssessment from '@/app/[admin]/courses/[courseId]/module/[moduleId]/chapter/[chapterId]/adaptiveAssessment/AdaptiveAssessmentConfigurationForm'
 
 export type AdaptiveAssessmentTopicPayload = {
@@ -43,9 +46,23 @@ function AdaptiveAssessmentTopicForm({
 		bootcampId,
 		open
 	)
+	const { isChapterUpdated, setIsChapterUpdated } = getChapterUpdateStatus()
 	const { createTopic, creating } = useCreateTopic()
 	const { deleteTopic, deleting } = useDeleteTopic()
 	const { updateTopic, updating } = useUpdateTopic()
+	const { editChapter, loading: updatingChapter } = useEditChapter()
+	const { chapterData } = getChapterDataState()
+	const params = useParams()
+	const chapterRouteId = params?.chapterID
+	const chapterId = chapterRouteId
+		? Number(Array.isArray(chapterRouteId) ? chapterRouteId[0] : chapterRouteId)
+		: null
+
+	const currentChapter = useMemo(
+		() => chapterData.find((chapter) => chapter.chapterId === chapterId),
+		[chapterData, chapterId]
+	)
+
 	const [description, setDescription] = useState('')
 	const [newTopicName, setNewTopicName] = useState('')
 	const [showAddTopicInput, setShowAddTopicInput] = useState(false)
@@ -58,6 +75,9 @@ function AdaptiveAssessmentTopicForm({
 	const [editTopic, setEditTopic] = useState<{ id: number; name: string } | null>(null)
 	const [editTopicName, setEditTopicName] = useState('')
 	const [editTopicDescription, setEditTopicDescription] = useState('')
+	const [chapterTitleInput, setChapterTitleInput] = useState(
+		currentChapter?.chapterTitle || ''
+	)
 
 	const INITIAL_DISPLAY_LIMIT = 15
 
@@ -126,6 +146,48 @@ function AdaptiveAssessmentTopicForm({
 			setEditTopicDescription('')
 		}
 	}, [open])
+
+	useEffect(() => {
+		if (open) {
+			setChapterTitleInput(currentChapter?.chapterTitle || '')
+		}
+	}, [open, currentChapter?.chapterTitle])
+
+	const handleSaveChapterTitle = async () => {
+		if (!chapterId) {
+			toast.error({
+				title: 'Chapter not selected',
+				description: 'Unable to update chapter title without a selected chapter.',
+			})
+			return
+		}
+
+		const trimmedTitle = chapterTitleInput.trim()
+		if (!trimmedTitle) {
+			toast.error({
+				title: 'Chapter title required',
+				description: 'Please enter a chapter title.',
+			})
+			return
+		}
+
+		try {
+			await editChapter(moduleId, chapterId, { title: trimmedTitle })
+			toast.success({
+				title: 'Chapter title updated',
+				description: 'The chapter name was updated successfully.',
+			})
+			setChapterTitleInput(trimmedTitle)
+			setIsChapterUpdated(!isChapterUpdated)
+		} catch (error: any) {
+			toast.error({
+				title: 'Failed to update chapter title',
+				description:
+					error?.response?.data?.message ||
+					'Unable to update the chapter title right now.',
+			})
+		}
+	}
 
 	const handleSave = async () => {
 		const trimmedName = newTopicName.trim()
@@ -295,6 +357,40 @@ function AdaptiveAssessmentTopicForm({
 			<div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 			<section className="w-full lg:col-span-5 max-h-[85vh] overflow-y-auto border border-border/60 rounded-xl bg-background">
 				<div className="px-6 pt-6 pb-4 border-b bg-muted/20">
+				<div className="space-y-3">
+						<div className="space-y-1">
+							<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+								<Input
+									id="chapter-title"
+									value={chapterTitleInput}
+									onChange={(event) => setChapterTitleInput(event.target.value)}
+									placeholder="Enter chapter title"
+									className="min-w-0 my-4"
+									disabled={
+										creating || deleting || updating || updatingChapter || !chapterId
+									}
+								/>
+								<Button
+									type="button"
+									onClick={handleSaveChapterTitle}
+								     className='p-1 h-8'
+									disabled={
+										!chapterId ||
+										updatingChapter ||
+										!chapterTitleInput.trim() ||
+										creating ||
+										deleting ||
+										updating
+									}
+								>
+									<p className='text-xs'>
+										{updatingChapter ? 'Saving...' : 'Save'}
+										</p>
+								</Button>
+							</div>
+						</div>
+					
+					</div>
 				<h2 className="text-xl font-semibold text-left">
 					Manage Topics
 				</h2>
@@ -307,7 +403,9 @@ function AdaptiveAssessmentTopicForm({
 			</div>
 
 				<div className="space-y-6 px-6 py-5">
-				<div className="space-y-2.5">
+					
+
+					<div className="space-y-2.5">
 					<Label className="text-sm flex font-medium text-foreground">
 						Topics
 					</Label>
