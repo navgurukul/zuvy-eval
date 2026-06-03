@@ -189,7 +189,7 @@ export function QuestionReviewModal({
             <span className="text-sm text-text-secondary">
               {set.questions.length} questions remaining
             </span>
-            <div className="flex gap-3">
+            {/* <div className="flex gap-3">
               <Button variant="outline" onClick={onClose} className="px-5 h-10 rounded-md border-border">
                 Back to Sets
               </Button>
@@ -199,7 +199,7 @@ export function QuestionReviewModal({
               >
                 Continue to Publish
               </Button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
